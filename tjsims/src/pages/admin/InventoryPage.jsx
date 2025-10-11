@@ -2,67 +2,21 @@ import React, { useState, useEffect } from 'react';
 import Navbar from '../../components/admin/Navbar';
 import { BsSearch, BsPlus, BsPencil, BsTrash, BsBox, BsTags, BsTruck } from 'react-icons/bs';
 import '../../styles/InventoryPage.css';
+import { productAPI } from '../../utils/api';
+import { inventoryAPI } from '../../utils/inventoryApi';
 
 const InventoryPage = () => {
-  // State for products
-  const [products, setProducts] = useState([
-    {
-      id: 1,
-      name: 'Engine Oil Filter',
-      brand: 'Bosch',
-      category: 'Engine & Cooling',
-      price: 450,
-      stock: 25,
-      supplier: 'Bosch Philippines',
-      sku: 'EOF-001',
-      description: 'High-quality engine oil filter for various vehicle models'
-    },
-    {
-      id: 2,
-      name: 'Brake Pad Set',
-      brand: 'Akebono',
-      category: 'Break Parts',
-      price: 1200,
-      stock: 18,
-      supplier: 'Akebono Brake Corporation',
-      sku: 'BPS-002',
-      description: 'Front brake pad set for sedans and SUVs'
-    },
-    {
-      id: 3,
-      name: 'Shock Absorber',
-      brand: 'KYB',
-      category: 'Suspension and Steering',
-      price: 3500,
-      stock: 8,
-      supplier: 'KYB Asia',
-      sku: 'SA-003',
-      description: 'Rear shock absorber for pickup trucks'
-    },
-    {
-      id: 4,
-      name: 'Radiator Hose',
-      brand: 'Gates',
-      category: 'Engine & Cooling',
-      price: 680,
-      stock: 0,
-      supplier: 'Gates Corporation',
-      sku: 'RH-004',
-      description: 'Upper radiator hose for diesel engines'
-    },
-    {
-      id: 5,
-      name: 'CV Joint Boot',
-      brand: 'Moog',
-      category: 'Transmission',
-      price: 320,
-      stock: 15,
-      supplier: 'Federal-Mogul',
-      sku: 'CVJ-005',
-      description: 'CV joint boot kit with clamps and grease'
-    }
-  ]);
-
+  // State for products and inventory stats
+  const [products, setProducts] = useState([]);
+  const [inventoryStats, setInventoryStats] = useState({
+    totalProducts: 0,
+    inStock: 0,
+    lowStock: 0,
+    outOfStock: 0
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
@@ -72,8 +26,51 @@ const InventoryPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(5);
 
-  // Categories for filter
-  const categories = ['All', 'Engine & Cooling', 'Transmission', 'Suspension and Steering', 'Break Parts', 'Body & Exterior'];
+  // Load products and inventory stats on component mount
+  useEffect(() => {
+    loadProducts();
+    loadInventoryStats();
+  }, []);
+
+  // Load products from API
+  const loadProducts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Build filters object
+      const filters = {};
+      if (searchQuery) filters.search = searchQuery;
+      if (selectedCategory !== 'All') filters.category = selectedCategory;
+      if (selectedStatus !== 'All') filters.status = selectedStatus;
+
+      const response = await inventoryAPI.getProducts(filters);
+      if (response.success) {
+        const productsWithInventory = response.data.products || [];
+        console.log('Products with inventory:', productsWithInventory);
+        setProducts(productsWithInventory);
+      } else {
+        setError('Failed to load products');
+      }
+    } catch (error) {
+      console.error('Error loading products:', error);
+      setError(error.message || 'Failed to load products');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load inventory statistics
+  const loadInventoryStats = async () => {
+    try {
+      const response = await inventoryAPI.getStats();
+      if (response.success) {
+        setInventoryStats(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading inventory stats:', error);
+    }
+  };
 
   // Filter products based on search and category
   const filteredProducts = products.filter(product => {
@@ -142,29 +139,30 @@ const InventoryPage = () => {
     }
   };
 
-  // Handle form submission
-  const handleSubmitProduct = (e) => {
+  // Handle form submission for stock update
+  const handleSubmitProduct = async (e) => {
     e.preventDefault();
-    if (isAddMode) {
-      const newProduct = {
-        ...selectedProduct,
-        id: Math.max(...products.map(p => p.id)) + 1
-      };
-      setProducts([...products, newProduct]);
-    } else {
-      // For edit mode, only update stock if quantity was added
-      if (selectedProduct.quantityToAdd && selectedProduct.quantityToAdd > 0) {
-        const updatedProduct = {
-          ...selectedProduct,
-          stock: selectedProduct.stock + selectedProduct.quantityToAdd,
-          quantityToAdd: 0 // Reset after update
-        };
-        setProducts(products.map(product =>
-          product.id === selectedProduct.id ? updatedProduct : product
-        ));
+    if (isSubmitting) return;
+
+    try {
+      setIsSubmitting(true);
+
+      const response = await inventoryAPI.updateStock(selectedProduct.product_id, {
+        quantityToAdd: selectedProduct.quantityToAdd,
+        reorderPoint: selectedProduct.reorderPoint
+      });
+
+      if (response.success) {
+        await loadProducts();
+        await loadInventoryStats();
       }
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error updating stock:', error);
+      alert('Error updating stock: ' + error.message);
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsModalOpen(false);
   };
 
   // Handle input changes in modal
@@ -221,7 +219,7 @@ const InventoryPage = () => {
                   className="category-filter"
                 >
                   <option value="All">All Categories</option>
-                  {categories.filter(cat => cat !== 'All').map(category => (
+                  {Array.from(new Set(products.map(p => p.category))).map(category => (
                     <option key={category} value={category}>{category}</option>
                   ))}
                 </select>
@@ -245,36 +243,46 @@ const InventoryPage = () => {
             <div className="stat-card">
               <div className="stat-info">
                 <h3>Total Products</h3>
-                <p className="stat-number total-products">{products.length}</p>
+                <p className="stat-number total-products">{inventoryStats.totalProducts}</p>
               </div>
             </div>
 
             <div className="stat-card">
               <div className="stat-info">
                 <h3>In Stock</h3>
-                <p className="stat-number in-stock">{products.filter(p => p.stock > 10).length}</p>
+                <p className="stat-number in-stock">{inventoryStats.inStock}</p>
               </div>
             </div>
 
             <div className="stat-card">
               <div className="stat-info">
                 <h3>Low on Stock</h3>
-                <p className="stat-number low-stock">{products.filter(p => p.stock <= 10 && p.stock > 0).length}</p>
+                <p className="stat-number low-stock">{inventoryStats.lowStock}</p>
               </div>
             </div>
 
             <div className="stat-card">
               <div className="stat-info">
                 <h3>Out of Stock</h3>
-                <p className="stat-number out-of-stock">{products.filter(p => p.stock === 0).length}</p>
+                <p className="stat-number out-of-stock">{inventoryStats.outOfStock}</p>
               </div>
             </div>
           </div>
 
           {/* Products Table */}
           <div className="products-table-section">
-            <div className="table-container">
-              <table className="products-table">
+            {error && (
+              <div className="error-message">
+                <strong>Error:</strong> {error}
+                <button onClick={loadProducts}>Retry</button>
+              </div>
+            )}
+
+            {loading ? (
+              <div className="loading-message">Loading products...</div>
+            ) : (
+              <div className="table-container">
+                <table className="products-table">
                 <thead>
                   <tr>
                     <th>Product ID</th>
@@ -288,7 +296,7 @@ const InventoryPage = () => {
                 <tbody>
                   {currentProducts.map(product => (
                     <tr key={product.id}>
-                      <td>{product.sku}</td>
+                      <td>{product.product_id}</td>
                       <td>
                         <div className="product-info">
                           <h4>{product.name}</h4>
@@ -329,6 +337,7 @@ const InventoryPage = () => {
                 </tbody>
               </table>
             </div>
+            )}
 
             {/* Pagination and Results Info */}
             <div className="table-footer">

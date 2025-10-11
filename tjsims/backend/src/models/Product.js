@@ -1,0 +1,180 @@
+import { getPool } from '../config/database.js';
+
+export class Product {
+  static async create(productData) {
+    const pool = getPool();
+
+    const {
+      name,
+      brand,
+      category,
+      price,
+      status,
+      description,
+      image
+    } = productData;
+
+    // Generate unique product_id
+    const [maxIdResult] = await pool.execute('SELECT MAX(id) as maxId FROM products');
+    const nextId = (maxIdResult[0].maxId || 0) + 1;
+    const productId = `P${nextId.toString().padStart(3, '0')}`;
+
+    const [result] = await pool.execute(
+      `INSERT INTO products (product_id, name, brand, category, price, status, description, image, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+      [productId, name, brand, category, price, status, description, image]
+    );
+
+    return result.insertId;
+  }
+
+  static async findAll(filters = {}) {
+    const pool = getPool();
+    let query = 'SELECT * FROM products WHERE 1=1';
+    let params = [];
+
+    const { search, category, brand, status } = filters;
+
+    if (search) {
+      query += ' AND (name LIKE ? OR product_id LIKE ? OR brand LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+    }
+
+    if (category && category !== 'All Categories') {
+      query += ' AND category = ?';
+      params.push(category);
+    }
+
+    if (brand && brand !== 'All Brand') {
+      query += ' AND brand = ?';
+      params.push(brand);
+    }
+
+    if (status && status !== 'All Status') {
+      query += ' AND status = ?';
+      params.push(status);
+    }
+
+    query += ' ORDER BY created_at DESC';
+
+    const [rows] = await pool.execute(query, params);
+    return rows;
+  }
+
+  static async findById(id) {
+    const pool = getPool();
+    const [rows] = await pool.execute(
+      'SELECT * FROM products WHERE product_id = ?',
+      [id]
+    );
+    return rows[0] || null;
+  }
+
+  static async update(id, productData) {
+    const pool = getPool();
+
+    const {
+      name,
+      brand,
+      category,
+      price,
+      status,
+      description,
+      image
+    } = productData;
+
+    // Build dynamic update query
+    const updates = [];
+    const params = [];
+
+    if (name !== undefined) {
+      updates.push('name = ?');
+      params.push(name);
+    }
+    if (brand !== undefined) {
+      updates.push('brand = ?');
+      params.push(brand);
+    }
+    if (category !== undefined) {
+      updates.push('category = ?');
+      params.push(category);
+    }
+    if (price !== undefined) {
+      updates.push('price = ?');
+      params.push(price);
+    }
+    if (status !== undefined) {
+      updates.push('status = ?');
+      params.push(status);
+    }
+    if (description !== undefined) {
+      updates.push('description = ?');
+      params.push(description);
+    }
+    if (image !== undefined) {
+      updates.push('image = ?');
+      params.push(image);
+    }
+
+    if (updates.length === 0) {
+      throw new Error('No fields to update');
+    }
+
+    params.push(id); // Add id for WHERE clause
+
+    const query = `UPDATE products SET ${updates.join(', ')}, updated_at = NOW() WHERE id = ?`;
+    const [result] = await pool.execute(query, params);
+
+    return result.affectedRows > 0;
+  }
+
+  static async delete(id) {
+    const pool = getPool();
+    const [result] = await pool.execute(
+      'DELETE FROM products WHERE id = ?',
+      [id]
+    );
+    return result.affectedRows > 0;
+  }
+
+  static async getCategories() {
+    const pool = getPool();
+    const [rows] = await pool.execute(
+      'SELECT DISTINCT category FROM products ORDER BY category'
+    );
+    return rows.map(row => row.category);
+  }
+
+  static async getBrands() {
+    const pool = getPool();
+    const [rows] = await pool.execute(
+      'SELECT DISTINCT brand FROM products ORDER BY brand'
+    );
+    return rows.map(row => row.brand);
+  }
+
+  // Seed sample data for development (optional, remove in production)
+  static async seedSampleData() {
+    const pool = getPool();
+
+    // Check if data already exists
+    const [existing] = await pool.execute('SELECT COUNT(*) as count FROM products');
+    if (existing[0].count > 0) return;
+
+    const sampleProducts = [
+      { product_id: 'P001', name: 'Brake Pad Set', brand: 'Bosch', category: 'Brakes', price: 1500, status: 'Active', description: 'High-quality brake pads' },
+      { product_id: 'P002', name: 'Oil Filter', brand: 'Mann', category: 'Filters', price: 500, status: 'Active', description: 'Engine oil filter' },
+      { product_id: 'P003', name: 'Battery 12V', brand: 'Exide', category: 'Electrical', price: 3000, status: 'Active', description: 'Car battery' },
+      { product_id: 'P004', name: 'Side Mirror', brand: 'Dorman', category: 'Body', price: 800, status: 'Active', description: 'Replacement side mirror' },
+      { product_id: 'P005', name: 'Headlight Assembly', brand: 'Hella', category: 'Exterior', price: 2500, status: 'Active', description: 'LED headlight assembly' }
+    ];
+
+    for (const product of sampleProducts) {
+      await pool.execute(
+        `INSERT INTO products (product_id, name, brand, category, price, status, description, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        [product.product_id, product.name, product.brand, product.category, product.price, product.status, product.description]
+      );
+    }
+  }
+}

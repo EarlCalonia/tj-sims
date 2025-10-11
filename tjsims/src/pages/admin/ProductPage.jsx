@@ -2,94 +2,86 @@ import React, { useState, useEffect } from 'react';
 import Navbar from '../../components/admin/Navbar';
 import { BsSearch, BsPlus, BsPencil, BsTrash } from 'react-icons/bs';
 import '../../styles/ProductPage.css';
+import { productAPI, checkAPIHealth } from '../../utils/api.js';
 
 const ProductPage = () => {
   // State for products
-  const [products, setProducts] = useState([
-    {
-      id: 1,
-      productId: 'PRD-001',
-      name: 'Engine Oil Filter',
-      brand: 'Bosch',
-      category: 'Engine & Cooling',
-      price: 450,
-      status: 'Active',
-      description: 'High-quality engine oil filter for various vehicle models',
-      image: null
-    },
-    {
-      id: 2,
-      productId: 'PRD-002',
-      name: 'Brake Pad Set',
-      brand: 'Akebono',
-      category: 'Brake Parts',
-      price: 1200,
-      status: 'Active',
-      description: 'Front brake pad set for sedans and SUVs',
-      image: null
-    },
-    {
-      id: 3,
-      productId: 'PRD-003',
-      name: 'Shock Absorber',
-      brand: 'KYB',
-      category: 'Suspension & Steering',
-      price: 3500,
-      status: 'Inactive',
-      description: 'Rear shock absorber for pickup trucks',
-      image: null
-    },
-    {
-      id: 4,
-      productId: 'PRD-004',
-      name: 'Radiator Hose',
-      brand: 'Gates',
-      category: 'Engine & Cooling',
-      price: 680,
-      status: 'Active',
-      description: 'Upper radiator hose for diesel engines',
-      image: null
-    },
-    {
-      id: 5,
-      productId: 'PRD-005',
-      name: 'CV Joint Boot',
-      brand: 'Moog',
-      category: 'Transmission',
-      price: 320,
-      status: 'Active',
-      description: 'CV joint boot kit with clamps and grease',
-      image: null
-    }
-  ]);
-
+  const [products, setProducts] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
   const [selectedBrand, setSelectedBrand] = useState('All Brand');
   const [selectedStatus, setSelectedStatus] = useState('All Status');
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [categories, setCategories] = useState([]);
+  const [brands, setBrands] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAddMode, setIsAddMode] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(5);
+
+  // Pagination constant
+  const itemsPerPage = 10;
 
   // Categories for filter
-  const categories = ['Engine & Cooling', 'Transmission', 'Suspension & Steering', 'Break Parts', 'Body & Exterior'];
-  const brands = ['Bosch', 'Akebono', 'KYB', 'Gates', 'Moog'];
   const statuses = ['Active', 'Inactive'];
 
-  // Filter products based on search and filters
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         product.productId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         product.brand.toLowerCase().includes(searchQuery.toLowerCase());
+  // Load products and categories/brands on component mount
+  useEffect(() => {
+    loadProducts();
+    loadCategoriesAndBrands();
+  }, []);
 
-    const matchesCategory = selectedCategory === 'All Categories' || product.category === selectedCategory;
-    const matchesBrand = selectedBrand === 'All Brand' || product.brand === selectedBrand;
-    const matchesStatus = selectedStatus === 'All Status' || product.status === selectedStatus;
+  // Load products from API
+  const loadProducts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-    return matchesSearch && matchesCategory && matchesBrand && matchesStatus;
-  });
+      // Build filters object
+      const filters = {};
+      if (searchQuery) filters.search = searchQuery;
+      if (selectedCategory && selectedCategory !== 'All Categories') filters.category = selectedCategory;
+      if (selectedBrand && selectedBrand !== 'All Brand') filters.brand = selectedBrand;
+      if (selectedStatus && selectedStatus !== 'All Status') filters.status = selectedStatus;
+
+      const response = await productAPI.getProducts(filters);
+      if (response.success) {
+        setProducts(response.data.products || []);
+      } else {
+        setError('Failed to load products');
+      }
+    } catch (error) {
+      console.error('Error loading products:', error);
+      setError(error.message || 'Failed to load products');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load categories and brands
+  const loadCategoriesAndBrands = async () => {
+    try {
+      const [categoriesResponse, brandsResponse] = await Promise.all([
+        productAPI.getCategories(),
+        productAPI.getBrands()
+      ]);
+
+      if (categoriesResponse.success) {
+        setCategories(categoriesResponse.data || []);
+      }
+
+      if (brandsResponse.success) {
+        setBrands(brandsResponse.data || []);
+      }
+    } catch (error) {
+      console.error('Error loading categories/brands:', error);
+    }
+  };
+
+  // Filter products based on search and filters (client-side filtering for better UX)
+  const filteredProducts = products;
 
   // Pagination logic
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
@@ -131,28 +123,57 @@ const ProductPage = () => {
   };
 
   // Handle delete product
-  const handleDeleteProduct = (productId) => {
+  const handleDeleteProduct = async (productId) => {
     if (window.confirm('Are you sure you want to delete this product?')) {
-      setProducts(products.filter(product => product.id !== productId));
+      try {
+        const response = await productAPI.deleteProduct(productId);
+        if (response.success) {
+          await loadProducts(); // Refresh the products list
+        }
+      } catch (error) {
+        console.error('Error deleting product:', error);
+        alert('Error deleting product: ' + error.message);
+      }
     }
   };
 
   // Handle form submission
-  const handleSubmitProduct = (e) => {
+  const handleSubmitProduct = async (e) => {
     e.preventDefault();
-    if (isAddMode) {
-      const newProduct = {
-        ...selectedProduct,
-        id: Math.max(...products.map(p => p.id)) + 1,
-        productId: `PRD-${String(Math.max(...products.map(p => parseInt(p.productId.split('-')[1]))) + 1).padStart(3, '0')}`
-      };
-      setProducts([...products, newProduct]);
-    } else {
-      setProducts(products.map(product =>
-        product.id === selectedProduct.id ? selectedProduct : product
-      ));
+    if (isSubmitting) return;
+
+    try {
+      setIsSubmitting(true);
+
+      const formData = new FormData();
+      formData.append('name', selectedProduct.name);
+      formData.append('brand', selectedProduct.brand);
+      formData.append('category', selectedProduct.category);
+      formData.append('price', selectedProduct.price);
+      formData.append('status', selectedProduct.status);
+      formData.append('description', selectedProduct.description);
+      if (selectedProduct.image && selectedProduct.image instanceof File) {
+        formData.append('image', selectedProduct.image);
+      }
+
+      if (isAddMode) {
+        const response = await productAPI.createProduct(formData);
+        if (response.success) {
+          await loadProducts(); // Refresh the products list
+        }
+      } else {
+        const response = await productAPI.updateProduct(selectedProduct.id, formData);
+        if (response.success) {
+          await loadProducts(); // Refresh the products list
+        }
+      }
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error saving product:', error);
+      alert('Error saving product: ' + error.message);
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsModalOpen(false);
   };
 
   // Handle input changes in modal
@@ -245,63 +266,89 @@ const ProductPage = () => {
 
           {/* Products Table */}
           <div className="products-table-section">
-            <div className="table-container">
-              <table className="products-table">
-                <thead>
-                  <tr>
-                    <th>Product ID</th>
-                    <th>Product Name</th>
-                    <th>Category</th>
-                    <th>Brand</th>
-                    <th>Price</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {currentProducts.map(product => (
-                    <tr key={product.id}>
-                      <td>{product.productId}</td>
-                      <td>
-                        <div className="product-info">
-                          <h4>{product.name}</h4>
-                        </div>
-                      </td>
-                      <td>
-                        <span className="category-badge">{product.category}</span>
-                      </td>
-                      <td>{product.brand}</td>
-                      <td className="price-cell">
-                        ₱{product.price.toLocaleString()}
-                      </td>
-                      <td>
-                        <span className={`status-badge ${product.status.toLowerCase()}`}>
-                          {product.status}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="action-buttons">
-                          <button
-                            onClick={() => handleEditProduct(product)}
-                            className="edit-btn"
-                            title="Edit Product"
-                          >
-                            <BsPencil />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteProduct(product.id)}
-                            className="delete-btn"
-                            title="Delete Product"
-                          >
-                            <BsTrash />
-                          </button>
-                        </div>
-                      </td>
+            {error && (
+              <div className="error-message" style={{ padding: '20px', backgroundColor: '#ffebee', color: '#c62828', borderRadius: '4px', marginBottom: '20px' }}>
+                <strong>Error:</strong> {error}
+                <button
+                  onClick={loadProducts}
+                  style={{ marginLeft: '10px', padding: '5px 10px', backgroundColor: '#c62828', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {loading ? (
+              <div style={{ textAlign: 'center', padding: '50px' }}>
+                <div>Loading products...</div>
+              </div>
+            ) : (
+              <div className="table-container">
+                <table className="products-table">
+                  <thead>
+                    <tr>
+                      <th>Product ID</th>
+                      <th>Product Name</th>
+                      <th>Category</th>
+                      <th>Brand</th>
+                      <th>Price</th>
+                      <th>Status</th>
+                      <th>Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {currentProducts.length === 0 ? (
+                      <tr>
+                        <td colSpan="7" style={{ textAlign: 'center', padding: '40px' }}>
+                          No products found. Add your first product!
+                        </td>
+                      </tr>
+                    ) : (
+                      currentProducts.map(product => (
+                        <tr key={product.id}>
+                          <td>{product.product_id}</td>
+                          <td>
+                            <div className="product-info">
+                              <h4>{product.name}</h4>
+                            </div>
+                          </td>
+                          <td>
+                            <span className="category-badge">{product.category}</span>
+                          </td>
+                          <td>{product.brand}</td>
+                          <td className="price-cell">
+                            ₱{product.price?.toLocaleString()}
+                          </td>
+                          <td>
+                            <span className={`status-badge ${product.status?.toLowerCase()}`}>
+                              {product.status}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="action-buttons">
+                              <button
+                                onClick={() => handleEditProduct(product)}
+                                className="edit-btn"
+                                title="Edit Product"
+                              >
+                                <BsPencil />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteProduct(product.id)}
+                                className="delete-btn"
+                                title="Delete Product"
+                              >
+                                <BsTrash />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
             {/* Pagination and Results Info */}
             <div className="table-footer">
@@ -436,7 +483,18 @@ const ProductPage = () => {
                 </div>
 
                 <div className="form-group">
-                  <label>Product Image</label>
+                  <label>Current Image</label>
+                  {selectedProduct?.image && (
+                    <div className="image-preview">
+                      <img
+                        src={selectedProduct.image instanceof File ? 
+                          URL.createObjectURL(selectedProduct.image) : 
+                          `http://localhost:5000${selectedProduct.image}`}
+                        alt="Product"
+                        style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '4px' }}
+                      />
+                    </div>
+                  )}
                   <div className="image-upload-container">
                     <input
                       type="file"
@@ -447,7 +505,7 @@ const ProductPage = () => {
                     />
                     <label htmlFor="product-image" className="upload-label">
                       <button type="button" className="upload-btn" onClick={() => document.getElementById('product-image').click()}>
-                        Upload Image
+                        {selectedProduct?.image ? 'Change Image' : 'Upload Image'}
                       </button>
                       <br></br>
                       <span className="upload-hint">PNG, JPG up to 5MB</span>
@@ -481,8 +539,8 @@ const ProductPage = () => {
                 <button type="button" onClick={() => setIsModalOpen(false)} className="cancel-btn">
                   Cancel
                 </button>
-                <button type="submit" className="save-btn">
-                  {isAddMode ? 'Save Product' : 'Save Changes'}
+                <button type="submit" className="save-btn" disabled={isSubmitting}>
+                  {isSubmitting ? 'Saving...' : (isAddMode ? 'Save Product' : 'Save Changes')}
                 </button>
               </div>
             </form>
