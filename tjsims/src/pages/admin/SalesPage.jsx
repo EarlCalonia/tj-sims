@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BsCartPlus, BsTrash, BsSearch } from 'react-icons/bs';
 import Navbar from '../../components/admin/Navbar';
 import '../../styles/SalesPage.css';
+import { productAPI, salesAPI, inventoryAPI } from '../../utils/api';
 
 const SalesPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -13,23 +14,56 @@ const SalesPage = () => {
   const [orderStatus, setOrderStatus] = useState('Processing');
   const [paymentStatus, setPaymentStatus] = useState('Pending');
 
-  // Sample product data
-  const [products] = useState([
-    { id: 1, name: 'Hydraulic', brand: 'Isuzu', price: 3200, stock: 45 },
-    { id: 2, name: 'Auxiliary Fan', brand: 'Isuzu', price: 2050, stock: 8 },
-    { id: 3, name: 'Headlight', brand: 'Daewoo', price: 1500, stock: 12 },
-    { id: 4, name: 'Thermostat Assembly', brand: 'Kia', price: 850, stock: 78 },
-    { id: 5, name: 'Leaf Spring', brand: 'Suzuki', price: 1000, stock: 0 },
-    { id: 6, name: 'Bumper', brand: 'Hyundai', price: 2250, stock: 23 },
-    { id: 7, name: 'Gearbox', brand: 'Mitsubishi', price: 5300, stock: 30 },
-    { id: 8, name: 'Oil Filter', brand: 'Isuzu', price: 750, stock: 60 },
-    { id: 9, name: 'Brake Pad Set', brand: 'Isuzu', price: 1600, stock: 18 },
-    { id: 10, name: 'Side Mirror', brand: 'Toyota', price: 1800, stock: 27 },
-  ]);
+  // New state for API integration
+  const [products, setProducts] = useState([]);
+  const [inventory, setInventory] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const [quantities, setQuantities] = useState(
-    products.reduce((acc, product) => ({ ...acc, [product.id]: 1 }), {})
-  );
+  // Fetch products and inventory data on component mount
+  useEffect(() => {
+    fetchProductsAndInventory();
+  }, []);
+
+  const fetchProductsAndInventory = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Fetch products with inventory data
+      const response = await inventoryAPI.getProductsWithInventory();
+
+      // The API returns { success: true, data: { products: [...] } }
+      const productsData = response.data?.products || [];
+
+      // The API returns an array of products with inventory info
+      const productsWithInventory = productsData.map(product => ({
+        ...product,
+        stock: product.stock || 0
+      }));
+
+      setProducts(productsWithInventory);
+
+      // Create inventory lookup map
+      const inventoryMap = {};
+      productsWithInventory.forEach(product => {
+        inventoryMap[product.product_id] = {
+          stock: product.stock || 0,
+          reorder_point: product.reorder_point || 10
+        };
+      });
+      setInventory(inventoryMap);
+
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError('Failed to load products and inventory data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const [quantities, setQuantities] = useState({});
 
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -43,39 +77,180 @@ const SalesPage = () => {
     }));
   };
 
-  const addToCart = (product) => {
-    const quantity = quantities[product.id];
-    const existingItem = cart.find(item => item.id === product.id);
+  const addToCart = async (product) => {
+    const quantity = quantities[product.product_id] || 1;
 
-    if (existingItem) {
-      setCart(cart.map(item =>
-        item.id === product.id
-          ? { ...item, quantity: item.quantity + quantity }
-          : item
+    // Check if we have enough stock
+    if (product.stock < quantity) {
+      alert(`Insufficient stock. Available: ${product.stock}, Requested: ${quantity}`);
+      return;
+    }
+
+    try {
+      // Update inventory first (subtract stock)
+      await inventoryAPI.updateStock(product.product_id, -quantity);
+
+      const existingItem = cart.find(item => item.product_id === product.product_id);
+
+      if (existingItem) {
+        setCart(cart.map(item =>
+          item.product_id === product.product_id
+            ? { ...item, quantity: item.quantity + quantity }
+            : item
+        ));
+      } else {
+        setCart([...cart, {
+          product_id: product.product_id,
+          name: product.name,
+          brand: product.brand,
+          price: product.price,
+          quantity
+        }]);
+      }
+
+      // Update local state to reflect stock change
+      setProducts(products.map(p =>
+        p.product_id === product.product_id
+          ? { ...p, stock: p.stock - quantity }
+          : p
       ));
-    } else {
-      setCart([...cart, { ...product, quantity }]);
+
+      // Update inventory map
+      setInventory(prev => ({
+        ...prev,
+        [product.product_id]: {
+          ...prev[product.product_id],
+          stock: prev[product.product_id].stock - quantity
+        }
+      }));
+
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      alert('Failed to add item to cart. Please try again.');
     }
   };
 
-  const removeFromCart = (productId) => {
-    setCart(cart.filter(item => item.id !== productId));
+  const removeFromCart = async (productId) => {
+    const itemToRemove = cart.find(item => item.product_id === productId);
+    if (!itemToRemove) return;
+
+    try {
+      // Update inventory (add stock back)
+      await inventoryAPI.updateStock(productId, itemToRemove.quantity);
+
+      // Remove from cart
+      setCart(cart.filter(item => item.product_id !== productId));
+
+      // Update local state to reflect stock change
+      setProducts(products.map(p =>
+        p.product_id === productId
+          ? { ...p, stock: p.stock + itemToRemove.quantity }
+          : p
+      ));
+
+      // Update inventory map
+      setInventory(prev => ({
+        ...prev,
+        [productId]: {
+          ...prev[productId],
+          stock: prev[productId].stock + itemToRemove.quantity
+        }
+      }));
+
+    } catch (error) {
+      console.error('Error removing from cart:', error);
+      alert('Failed to remove item from cart. Please try again.');
+    }
   };
 
-  const updateCartQuantity = (productId, change) => {
-    setCart(cart.map(item =>
-      item.id === productId
-        ? { ...item, quantity: Math.max(1, item.quantity + change) }
-        : item
-    ));
+  const updateCartQuantity = async (productId, change) => {
+    const item = cart.find(item => item.product_id === productId);
+    if (!item) return;
+
+    const newQuantity = Math.max(1, item.quantity + change);
+    const quantityDifference = newQuantity - item.quantity;
+
+    // If quantity is not changing, return early
+    if (quantityDifference === 0) return;
+
+    try {
+      // Check stock availability for increases
+      if (quantityDifference > 0) {
+        const currentStock = inventory[productId]?.stock || 0;
+        if (currentStock < quantityDifference) {
+          alert(`Insufficient stock. Available: ${currentStock}, Needed: ${quantityDifference}`);
+          return;
+        }
+      }
+
+      // Update inventory
+      await inventoryAPI.updateStock(productId, -quantityDifference);
+
+      // Update cart
+      setCart(cart.map(cartItem =>
+        cartItem.product_id === productId
+          ? { ...cartItem, quantity: newQuantity }
+          : cartItem
+      ));
+
+      // Update local state to reflect stock change
+      setProducts(products.map(p =>
+        p.product_id === productId
+          ? { ...p, stock: p.stock - quantityDifference }
+          : p
+      ));
+
+      // Update inventory map
+      setInventory(prev => ({
+        ...prev,
+        [productId]: {
+          ...prev[productId],
+          stock: prev[productId].stock - quantityDifference
+        }
+      }));
+
+    } catch (error) {
+      console.error('Error updating cart quantity:', error);
+      alert('Failed to update quantity. Please try again.');
+    }
   };
 
   const getCartTotal = () => {
     return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
   };
 
-  const clearCart = () => {
-    setCart([]);
+  const clearCart = async () => {
+    if (cart.length === 0) return;
+
+    try {
+      // Add all stock back for each item in cart
+      for (const item of cart) {
+        await inventoryAPI.updateStock(item.product_id, item.quantity);
+
+        // Update local state to reflect stock change
+        setProducts(products.map(p =>
+          p.product_id === item.product_id
+            ? { ...p, stock: p.stock + item.quantity }
+            : p
+        ));
+
+        // Update inventory map
+        setInventory(prev => ({
+          ...prev,
+          [item.product_id]: {
+            ...prev[item.product_id],
+            stock: prev[item.product_id].stock + item.quantity
+          }
+        }));
+      }
+
+      // Clear the cart
+      setCart([]);
+
+    } catch (error) {
+      console.error('Error clearing cart:', error);
+      alert('Failed to clear cart. Please try again.');
+    }
   };
 
   const clearCustomerInfo = () => {
@@ -83,7 +258,7 @@ const SalesPage = () => {
     setContactNumber('');
   };
 
-  const confirmSale = () => {
+  const confirmSale = async () => {
     if (cart.length === 0) {
       alert('Please add items to cart before confirming sale');
       return;
@@ -93,9 +268,41 @@ const SalesPage = () => {
       return;
     }
 
-    alert(`Sale confirmed!\nTotal: ₱${getCartTotal().toLocaleString()}\nCustomer: ${customerName}`);
-    clearCart();
-    clearCustomerInfo();
+    try {
+      setSubmitting(true);
+
+      const saleData = {
+        customer_name: customerName,
+        contact: contactNumber,
+        payment: paymentOption,
+        total: getCartTotal(),
+        items: cart.map(item => ({
+          product_id: item.product_id,
+          product_name: item.name,
+          brand: item.brand,
+          price: item.price,
+          quantity: item.quantity
+        }))
+      };
+
+      const result = await salesAPI.createSale(saleData);
+
+      alert(`Sale confirmed successfully!\nSale Number: ${result.saleNumber}\nTotal: ₱${getCartTotal().toLocaleString()}\nCustomer: ${customerName}`);
+      clearCart();
+      clearCustomerInfo();
+
+      // Show refresh indicator and refresh inventory data
+      setLoading(true);
+      await new Promise(resolve => setTimeout(resolve, 500)); // Small delay for visual feedback
+      await fetchProductsAndInventory();
+      setLoading(false);
+
+    } catch (error) {
+      console.error('Error creating sale:', error);
+      alert('Failed to create sale. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -107,6 +314,15 @@ const SalesPage = () => {
             <h1 className="sales-title">Sales Transaction</h1>
             <p className="sales-subtitle">Process customer purchases and manage inventory</p>
           </div>
+
+          {error && (
+            <div className="error-banner">
+              <p>{error}</p>
+              <button onClick={fetchProductsAndInventory} className="retry-btn">
+                Retry
+              </button>
+            </div>
+          )}
 
           <div className="sales-content">
             {/* Products Section */}
@@ -126,60 +342,66 @@ const SalesPage = () => {
               </div>
 
               <div className="products-table-container">
-                <table className="products-table">
-                  <thead>
-                    <tr>
-                      <th>Product Name</th>
-                      <th>Brand</th>
-                      <th>Price</th>
-                      <th>Stock</th>
-                      <th>Quantity</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredProducts.map(product => (
-                      <tr key={product.id}>
-                        <td>{product.name}</td>
-                        <td>{product.brand}</td>
-                        <td>₱{product.price.toLocaleString()}</td>
-                        <td className={product.stock === 0 ? 'out-of-stock' : ''}>
-                          {product.stock}
-                        </td>
-                        <td>
-                          <div className="quantity-controls">
-                            <button
-                              onClick={() => handleQuantityChange(product.id, -1)}
-                              disabled={quantities[product.id] <= 1}
-                              className="quantity-btn"
-                            >
-                              -
-                            </button>
-                            <span className="quantity-display">
-                              {quantities[product.id]}
-                            </span>
-                            <button
-                              onClick={() => handleQuantityChange(product.id, 1)}
-                              className="quantity-btn"
-                            >
-                              +
-                            </button>
-                          </div>
-                        </td>
-                        <td>
-                          <button
-                            onClick={() => addToCart(product)}
-                            disabled={product.stock === 0}
-                            className="add-to-cart-btn"
-                          >
-                            <BsCartPlus className="cart-icon" />
-                            Add to Cart
-                          </button>
-                        </td>
+                {loading ? (
+                  <div className="loading-state">
+                    <p>Loading products...</p>
+                  </div>
+                ) : (
+                  <table className="products-table">
+                    <thead>
+                      <tr>
+                        <th>Product Name</th>
+                        <th>Brand</th>
+                        <th>Price</th>
+                        <th>Stock</th>
+                        <th>Quantity</th>
+                        <th>Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {filteredProducts.map(product => (
+                        <tr key={product.product_id}>
+                          <td>{product.name}</td>
+                          <td>{product.brand}</td>
+                          <td>₱{product.price.toLocaleString()}</td>
+                          <td className={product.stock === 0 ? 'out-of-stock' : ''}>
+                            {product.stock}
+                          </td>
+                          <td>
+                            <div className="quantity-controls">
+                              <button
+                                onClick={() => handleQuantityChange(product.product_id, -1)}
+                                disabled={(quantities[product.product_id] || 1) <= 1}
+                                className="quantity-btn"
+                              >
+                                -
+                              </button>
+                              <span className="quantity-display">
+                                {quantities[product.product_id] || 1}
+                              </span>
+                              <button
+                                onClick={() => handleQuantityChange(product.product_id, 1)}
+                                className="quantity-btn"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </td>
+                          <td>
+                            <button
+                              onClick={() => addToCart(product)}
+                              disabled={product.stock === 0}
+                              className="add-to-cart-btn"
+                            >
+                              <BsCartPlus className="cart-icon" />
+                              Add to Cart
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </div>
 
@@ -199,7 +421,7 @@ const SalesPage = () => {
                   ) : (
                     <>
                       {cart.map(item => (
-                        <div key={item.id} className="cart-item">
+                        <div key={item.product_id} className="cart-item">
                           <div className="cart-item-info">
                             <h4>{item.name}</h4>
                             <p>{item.brand}</p>
@@ -208,7 +430,7 @@ const SalesPage = () => {
                           <div className="cart-item-quantity">
                             <div className="quantity-controls">
                               <button
-                                onClick={() => updateCartQuantity(item.id, -1)}
+                                onClick={() => updateCartQuantity(item.product_id, -1)}
                                 className="quantity-btn"
                               >
                                 -
@@ -217,7 +439,7 @@ const SalesPage = () => {
                                 {item.quantity}
                               </span>
                               <button
-                                onClick={() => updateCartQuantity(item.id, 1)}
+                                onClick={() => updateCartQuantity(item.product_id, 1)}
                                 className="quantity-btn"
                               >
                                 +
@@ -228,7 +450,7 @@ const SalesPage = () => {
                             ₱{(item.price * item.quantity).toLocaleString()}
                           </div>
                           <button
-                            onClick={() => removeFromCart(item.id)}
+                            onClick={() => removeFromCart(item.product_id)}
                             className="remove-btn"
                           >
                             <BsTrash />
@@ -341,8 +563,12 @@ const SalesPage = () => {
 
           {/* Action Buttons - Right Side */}
           <div className="action-buttons-right">
-            <button onClick={confirmSale} className="confirm-btn">
-              Confirm Sale
+            <button
+              onClick={confirmSale}
+              disabled={submitting || cart.length === 0}
+              className="confirm-btn"
+            >
+              {submitting ? 'Processing...' : 'Confirm Sale'}
             </button>
             <button onClick={clearCart} className="clear-cart-btn">
               Clear Cart

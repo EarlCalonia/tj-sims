@@ -299,6 +299,21 @@
   color: #155724;
 }
 
+.payment-status-badge.cash {
+  background-color: #d1ecf1;
+  color: #0c5460;
+}
+
+.payment-status-badge.gcash {
+  background-color: #cce7ff;
+  color: #004085;
+}
+
+.payment-status-badge.card {
+  background-color: #e2e3e5;
+  color: #383d41;
+}
+
 .payment-status-badge.cash-on-delivery {
   background-color: #fff3cd;
   color: #856404;
@@ -918,5 +933,58 @@
   .confirm-btn {
     width: 100%;
   }
+}
+
+
+/* Error Banner */
+.error-banner {
+  background-color: #fee;
+  border: 1px solid #fcc;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.error-banner p {
+  margin: 0;
+  color: #c33;
+  font-weight: 500;
+}
+
+.retry-btn {
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+}
+
+.retry-btn:hover {
+  background-color: #c0392b;
+}
+
+/* Loading State */
+.loading-state {
+  padding: 40px;
+  text-align: center;
+  color: #666;
+}
+
+/* Loading Items State */
+.loading-items {
+  padding: 40px;
+  text-align: center;
+  color: #666;
+}
+
+.loading-items p {
+  margin: 0;
+  font-size: 1.1rem;
 }
 

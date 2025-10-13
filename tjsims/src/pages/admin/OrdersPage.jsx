@@ -2,24 +2,37 @@ import React, { useState, useEffect } from 'react';
 import Navbar from '../../components/admin/Navbar';
 import { BsSearch, BsEye, BsPencil } from 'react-icons/bs';
 import '../../styles/OrdersPage.css';
+import { salesAPI } from '../../utils/api';
 
 // Order Modal Component
-const OrderModal = ({ order, isOpen, onClose, onSave }) => {
-  const [editPaymentStatus, setEditPaymentStatus] = useState(order?.paymentStatus || '');
-  const [editOrderStatus, setEditOrderStatus] = useState(order?.orderStatus || '');
+const OrderModal = ({ order, isOpen, onClose, onSave, ordersWithItems }) => {
+  const [editPaymentStatus, setEditPaymentStatus] = useState(order?.payment || '');
+  const [editOrderStatus, setEditOrderStatus] = useState(order?.status || '');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (order) {
-      setEditPaymentStatus(order.paymentStatus);
-      setEditOrderStatus(order.orderStatus);
+      setEditPaymentStatus(order.payment);
+      setEditOrderStatus(order.status);
     }
   }, [order]);
 
   if (!isOpen || !order) return null;
 
-  const handleSubmit = (e) => {
+  // Get sale items for this order from the pre-loaded data
+  const saleItems = ordersWithItems[order.id] || [];
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onSave(editPaymentStatus, editOrderStatus);
+    setSaving(true);
+
+    try {
+      await onSave(order.id, editPaymentStatus, editOrderStatus);
+    } catch (error) {
+      console.error('Error saving order:', error);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -29,27 +42,27 @@ const OrderModal = ({ order, isOpen, onClose, onSave }) => {
           <h2>Order Details & Status Update</h2>
           <button onClick={onClose} className="close-btn" type="button">×</button>
         </div>
-        
+
         <form onSubmit={handleSubmit} className="product-form">
           <div className="form-section">
             <div className="form-group">
               <label>Order ID</label>
-              <input type="text" value={order.orderId} readOnly className="form-input readonly" />
+              <input type="text" value={order.sale_number} readOnly className="form-input readonly" />
             </div>
 
             <div className="form-group">
               <label>Customer Name</label>
-              <input type="text" value={order.customerName} readOnly className="form-input readonly" />
+              <input type="text" value={order.customer_name} readOnly className="form-input readonly" />
             </div>
 
             <div className="form-row">
               <div className="form-group">
                 <label>Current Payment Status</label>
-                <input type="text" value={order.paymentStatus} readOnly className="form-input readonly" />
+                <input type="text" value={order.payment} readOnly className="form-input readonly" />
               </div>
               <div className="form-group">
                 <label>Current Order Status</label>
-                <input type="text" value={order.orderStatus} readOnly className="form-input readonly" />
+                <input type="text" value={order.status} readOnly className="form-input readonly" />
               </div>
             </div>
 
@@ -57,21 +70,19 @@ const OrderModal = ({ order, isOpen, onClose, onSave }) => {
               <div className="form-group">
                 <label>Update Payment Status</label>
                 <select value={editPaymentStatus} onChange={(e) => setEditPaymentStatus(e.target.value)} className="form-input">
-                  <option value="Paid">Paid</option>
-                  <option value="Cash on Delivery">Cash on Delivery</option>
-                  <option value="Refunded">Refunded</option>
-                  <option value="Cancelled">Cancelled</option>
+                  <option value="Cash">Cash</option>
+                  <option value="GCash">GCash</option>
+                  <option value="Card">Card</option>
                 </select>
               </div>
               <div className="form-group">
                 <label>Update Order Status</label>
                 <select value={editOrderStatus} onChange={(e) => setEditOrderStatus(e.target.value)} className="form-input">
-                  <option value="Pending">Pending</option>
                   <option value="Processing">Processing</option>
-                  <option value="Shipping">Shipping</option>
-                  <option value="Out for Delivery">Out for Delivery</option>
-                  <option value="Completed">Completed</option>
-                  <option value="Canceled">Canceled</option>
+                  <option value="Confirmed">Confirmed</option>
+                  <option value="Shipped">Shipped</option>
+                  <option value="Delivered">Delivered</option>
+                  <option value="Cancelled">Cancelled</option>
                 </select>
               </div>
             </div>
@@ -79,7 +90,7 @@ const OrderModal = ({ order, isOpen, onClose, onSave }) => {
             <div className="form-section">
               <h4>Order Items</h4>
               <div className="items-display">
-                {order.products && order.products.length > 0 ? (
+                {saleItems && saleItems.length > 0 ? (
                   <div className="table-responsive">
                     <table className="items-table">
                       <thead>
@@ -90,16 +101,16 @@ const OrderModal = ({ order, isOpen, onClose, onSave }) => {
                         </tr>
                       </thead>
                       <tbody>
-                        {order.products.map((product, index) => (
+                        {saleItems.map((item, index) => (
                           <tr key={index} className="item-row">
                             <td className="item-quantity">
-                              <span className="quantity-badge">{product.quantity}</span>
+                              <span className="quantity-badge">{item.quantity || 0}</span>
                             </td>
                             <td className="item-name">
-                              <span className="product-name-text">{product.name}</span>
+                              <span className="product-name-text">{item.product_name || 'Unknown Product'}</span>
                             </td>
                             <td className="item-price">
-                              <span className="price-text">₱{product.price ? product.price.toLocaleString() : '0'}</span>
+                              <span className="price-text">₱{item.price ? item.price.toLocaleString() : '0'}</span>
                             </td>
                           </tr>
                         ))}
@@ -108,7 +119,7 @@ const OrderModal = ({ order, isOpen, onClose, onSave }) => {
                             <strong>Total</strong>
                           </td>
                           <td className="total-amount-cell">
-                            <strong className="final-total">₱{order.totalAmount ? order.totalAmount.toLocaleString() : '0'}</strong>
+                            <strong className="final-total">₱{order.total ? order.total.toLocaleString() : '0'}</strong>
                           </td>
                         </tr>
                       </tbody>
@@ -117,6 +128,9 @@ const OrderModal = ({ order, isOpen, onClose, onSave }) => {
                 ) : (
                   <div className="no-items-message">
                     <p>No items found for this order.</p>
+                    <p style={{ fontSize: '0.9rem', color: '#666', marginTop: '8px' }}>
+                      This order may not have any products, or there might be an issue loading the data.
+                    </p>
                   </div>
                 )}
               </div>
@@ -127,25 +141,21 @@ const OrderModal = ({ order, isOpen, onClose, onSave }) => {
               <div className="form-row">
                 <div className="form-group">
                   <label>Contact Number</label>
-                  <input type="text" value={order.customerContact} readOnly className="form-input readonly" />
+                  <input type="text" value={order.contact || ''} readOnly className="form-input readonly" />
                 </div>
                 <div className="form-group">
                   <label>Payment Method</label>
-                  <input type="text" value={order.paymentMethod} readOnly className="form-input readonly" />
+                  <input type="text" value={order.payment} readOnly className="form-input readonly" />
                 </div>
-              </div>
-              <div className="form-group">
-                <label>Delivery Address</label>
-                <textarea value={order.customerAddress} readOnly className="form-input readonly" rows="2" />
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Shipping Option</label>
-                  <input type="text" value={order.shippingOption} readOnly className="form-input readonly" />
+                  <label>Order Date</label>
+                  <input type="text" value={new Date(order.created_at).toLocaleDateString()} readOnly className="form-input readonly" />
                 </div>
                 <div className="form-group">
-                  <label>Order Date</label>
-                  <input type="text" value={order.orderDate} readOnly className="form-input readonly" />
+                  <label>Items Count</label>
+                  <input type="text" value={saleItems.length} readOnly className="form-input readonly" />
                 </div>
               </div>
             </div>
@@ -153,7 +163,9 @@ const OrderModal = ({ order, isOpen, onClose, onSave }) => {
 
           <div className="modal-actions">
             <button type="button" onClick={onClose} className="cancel-btn">Cancel</button>
-            <button type="submit" className="confirm-btn">Save Changes</button>
+            <button type="submit" className="confirm-btn" disabled={saving}>
+              {saving ? 'Saving...' : 'Save Changes'}
+            </button>
           </div>
         </form>
       </div>
@@ -162,97 +174,13 @@ const OrderModal = ({ order, isOpen, onClose, onSave }) => {
 };
 
 const OrdersPage = () => {
-  const [orders, setOrders] = useState([
-    {
-      id: 1,
-      orderId: 'ORD-001',
-      customerName: 'John Doe',
-      customerContact: '+63 912 345 6789',
-      customerAddress: '123 Main St, Manila, Philippines',
-      orderDate: '2024-01-15',
-      productList: 'Engine Oil Filter, Brake Pad Set',
-      paymentStatus: 'Paid',
-      orderStatus: 'Completed',
-      paymentMethod: 'Credit Card',
-      shippingOption: 'Standard Shipping (3-5 days)',
-      totalAmount: 1650,
-      products: [
-        { name: 'Engine Oil Filter', quantity: 1, price: 450 },
-        { name: 'Brake Pad Set', quantity: 1, price: 1200 }
-      ]
-    },
-    {
-      id: 2,
-      orderId: 'ORD-002',
-      customerName: 'Jane Smith',
-      customerContact: '+63 923 456 7890',
-      customerAddress: '456 Oak Ave, Quezon City, Philippines',
-      orderDate: '2024-01-14',
-      productList: 'Shock Absorber',
-      paymentStatus: 'Cash on Delivery',
-      orderStatus: 'Processing',
-      paymentMethod: 'Cash on Delivery',
-      shippingOption: 'Express Shipping (1-2 days)',
-      totalAmount: 3500,
-      products: [
-        { name: 'Shock Absorber', quantity: 1, price: 3500 }
-      ]
-    },
-    {
-      id: 3,
-      orderId: 'ORD-003',
-      customerName: 'Mike Johnson',
-      customerContact: '+63 934 567 8901',
-      customerAddress: '789 Pine St, Makati, Philippines',
-      orderDate: '2024-01-13',
-      productList: 'Radiator Hose, CV Joint Boot',
-      paymentStatus: 'Paid',
-      orderStatus: 'Shipping',
-      paymentMethod: 'PayPal',
-      shippingOption: 'Standard Shipping (3-5 days)',
-      totalAmount: 1000,
-      products: [
-        { name: 'Radiator Hose', quantity: 1, price: 680 },
-        { name: 'CV Joint Boot', quantity: 1, price: 320 }
-      ]
-    },
-    {
-      id: 4,
-      orderId: 'ORD-004',
-      customerName: 'Sarah Wilson',
-      customerContact: '+63 945 678 9012',
-      customerAddress: '321 Elm St, Pasig, Philippines',
-      orderDate: '2024-01-12',
-      productList: 'Engine Oil Filter',
-      paymentStatus: 'Refunded',
-      orderStatus: 'Canceled',
-      paymentMethod: 'Credit Card',
-      shippingOption: 'Standard Shipping (3-5 days)',
-      totalAmount: 450,
-      products: [
-        { name: 'Engine Oil Filter', quantity: 1, price: 450 }
-      ]
-    },
-    {
-      id: 5,
-      orderId: 'ORD-005',
-      customerName: 'David Brown',
-      customerContact: '+63 956 789 0123',
-      customerAddress: '654 Cedar Ave, Taguig, Philippines',
-      orderDate: '2024-01-11',
-      productList: 'Brake Pad Set, Shock Absorber',
-      paymentStatus: 'Paid',
-      orderStatus: 'Out for Delivery',
-      paymentMethod: 'GCash',
-      shippingOption: 'Express Shipping (1-2 days)',
-      totalAmount: 4700,
-      products: [
-        { name: 'Brake Pad Set', quantity: 1, price: 1200 },
-        { name: 'Shock Absorber', quantity: 1, price: 3500 }
-      ]
-    }
-  ]);
+  // State for API integration
+  const [orders, setOrders] = useState([]);
+  const [ordersWithItems, setOrdersWithItems] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
+  // Existing state
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOrderStatus, setSelectedOrderStatus] = useState('All Order Status');
   const [selectedPaymentStatus, setSelectedPaymentStatus] = useState('All Payment Status');
@@ -261,20 +189,102 @@ const OrdersPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(5);
 
+  // Fetch orders and their items from API
+  useEffect(() => {
+    fetchOrdersWithItems();
+  }, []);
+
+  const fetchOrdersWithItems = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Fetch orders first
+      const ordersData = await salesAPI.getSales();
+      setOrders(ordersData);
+
+      // Fetch sale items for each order
+      const ordersWithItemsData = {};
+      for (const order of ordersData) {
+        try {
+          const items = await salesAPI.getSaleItems(order.id);
+          ordersWithItemsData[order.id] = items || [];
+        } catch (error) {
+          console.error(`Error fetching items for order ${order.id}:`, error);
+          ordersWithItemsData[order.id] = [];
+        }
+      }
+      setOrdersWithItems(ordersWithItemsData);
+
+    } catch (err) {
+      console.error('Error fetching orders:', err);
+      setError('Failed to load orders');
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Helper function to calculate total items for an order
+  const getOrderItemsCount = (orderId) => {
+    const items = ordersWithItems[orderId] || [];
+    return items.reduce((total, item) => total + (item.quantity || 0), 0);
+  };
+
+  // Helper function to get items text for display
+  const getOrderItemsText = (orderId) => {
+    const items = ordersWithItems[orderId] || [];
+    const totalItems = getOrderItemsCount(orderId);
+
+    if (totalItems === 0) {
+      return '0 items';
+    } else if (totalItems === 1) {
+      return '1 item';
+    } else {
+      return `${totalItems} items`;
+    }
+  };
+
+  // Helper function to map database status to CSS class names
+  const getStatusClassName = (status) => {
+    const statusMap = {
+      'Processing': 'processing',
+      'Confirmed': 'completed',
+      'Shipped': 'shipping',
+      'Delivered': 'completed',
+      'Cancelled': 'canceled',
+      'Pending': 'pending',
+      'Completed': 'completed',
+      'Canceled': 'canceled'
+    };
+    return statusMap[status] || 'processing';
+  };
+
+  // Helper function to map payment method to CSS class names
+  const getPaymentStatusClassName = (payment) => {
+    const paymentMap = {
+      'Cash': 'cash',
+      'GCash': 'gcash',
+     
+      'Cash on Delivery': 'cash-on-delivery',
+      
+    };
+    return paymentMap[payment] || 'unknown-payment';
+  };
+
   // Order status options
-  const orderStatuses = ['All Order Status', 'Pending', 'Processing', 'Shipping', 'Out for Delivery', 'Canceled', 'Completed'];
+  const orderStatuses = ['All Order Status', 'Processing', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled'];
 
   // Payment status options
-  const paymentStatuses = ['All Payment Status', 'Paid', 'Cash on Delivery', 'Refunded', 'Cancelled'];
+  const paymentStatuses = ['All Payment Status', 'Cash', 'GCash', 'Card'];
 
   // Filter orders based on search and status
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         order.orderId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         order.productList.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredOrders = (orders || []).filter(order => {
+    const matchesSearch = order.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         order.sale_number.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesOrderStatus = selectedOrderStatus === 'All Order Status' || order.orderStatus === selectedOrderStatus;
-    const matchesPaymentStatus = selectedPaymentStatus === 'All Payment Status' || order.paymentStatus === selectedPaymentStatus;
+    const matchesOrderStatus = selectedOrderStatus === 'All Order Status' || order.status === selectedOrderStatus;
+    const matchesPaymentStatus = selectedPaymentStatus === 'All Payment Status' || order.payment === selectedPaymentStatus;
 
     return matchesSearch && matchesOrderStatus && matchesPaymentStatus;
   });
@@ -286,13 +296,13 @@ const OrdersPage = () => {
   const currentOrders = filteredOrders.slice(startIndex, endIndex);
   const totalFilteredOrders = filteredOrders.length;
 
-  // Calculate stats
-  const totalOrders = orders.length;
-  const pendingOrders = orders.filter(order => order.orderStatus === 'Pending').length;
-  const paidOrders = orders.filter(order => order.paymentStatus === 'Paid').length;
-  const totalRevenue = orders
-    .filter(order => order.paymentStatus === 'Paid')
-    .reduce((sum, order) => sum + order.totalAmount, 0);
+  // Calculate stats (add safety checks)
+  const totalOrders = (orders || []).length;
+  const pendingOrders = (orders || []).filter(order => order.status === 'Processing').length;
+  const paidOrders = (orders || []).filter(order => order.payment === 'Cash' || order.payment === 'GCash' || order.payment === 'Card').length;
+  const totalRevenue = (orders || [])
+    .filter(order => order.payment !== 'Cancelled')
+    .reduce((sum, order) => sum + parseFloat(order.total || 0), 0);
 
   // Reset to first page when filters change
   useEffect(() => {
@@ -322,16 +332,20 @@ const OrdersPage = () => {
     setIsModalOpen(true);
   };
 
-  // Handle save changes from modal
-  const handleSaveChanges = (newPaymentStatus, newOrderStatus) => {
-    if (selectedOrder) {
-      const updatedOrders = orders.map(order =>
-        order.id === selectedOrder.id
-          ? { ...order, paymentStatus: newPaymentStatus, orderStatus: newOrderStatus }
-          : order
-      );
-      setOrders(updatedOrders);
+  // Handle save changes from modal (update order status)
+  const handleSaveChanges = async (orderId, newPaymentStatus, newOrderStatus) => {
+    try {
+      await salesAPI.updateSale(orderId, {
+        payment: newPaymentStatus,
+        status: newOrderStatus
+      });
+
+      // Refresh orders and items data after update
+      await fetchOrdersWithItems();
       handleCloseModal();
+    } catch (error) {
+      console.error('Error updating order:', error);
+      alert('Failed to update order. Please try again.');
     }
   };
 
@@ -347,6 +361,15 @@ const OrdersPage = () => {
               <h1 className="orders-title">Order Management</h1>
               <p className="orders-subtitle">Track and manage customer orders and payments.</p>
             </div>
+
+            {error && (
+              <div className="error-banner">
+                <p>{error}</p>
+                <button onClick={fetchOrders} className="retry-btn">
+                  Retry
+                </button>
+              </div>
+            )}
 
             {/* Controls Section */}
             <div className="orders-controls">
@@ -422,69 +445,73 @@ const OrdersPage = () => {
             {/* Orders Table */}
             <div className="orders-table-section">
               <div className="table-container">
-                <table className="orders-table">
-                  <thead>
-                    <tr>
-                      <th>Order ID</th>
-                      <th>Customer Name</th>
-                      <th>Order Date</th>
-                      <th>Product List</th>
-                      <th>Payment Status</th>
-                      <th>Order Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentOrders.map(order => (
-                      <tr key={order.id}>
-                        <td className="order-id-cell">{order.orderId}</td>
-                        <td>
-                          <div className="customer-info">
-                            <h4>{order.customerName}</h4>
-                          </div>
-                        </td>
-                        <td>{order.orderDate}</td>
-                        <td>
-                          <div className="product-list">
-                            <span className="product-names" title={order.productList}>
-                              {order.productList.length > 50
-                                ? `${order.productList.substring(0, 50)}...`
-                                : order.productList}
-                            </span>
-                          </div>
-                        </td>
-                        <td>
-                          <span className={`payment-status-badge ${order.paymentStatus.toLowerCase().replace(/\s+/g, '-')}`}>
-                            {order.paymentStatus}
-                          </span>
-                        </td>
-                        <td>
-                          <span className={`order-status-badge ${order.orderStatus.toLowerCase().replace(/\s+/g, '-')}`}>
-                            {order.orderStatus}
-                          </span>
-                        </td>
-                        <td>
-                          <div className="action-buttons">
-                            <button
-                              onClick={() => handleViewOrder(order)}
-                              className="view-btn"
-                              title="View Order"
-                            >
-                              <BsEye />
-                            </button>
-                            <button
-                              onClick={() => handleUpdateOrder(order)}
-                              className="update-btn"
-                              title="Update Order"
-                            >
-                              <BsPencil />
-                            </button>
-                          </div>
-                        </td>
+                {loading ? (
+                  <div className="loading-state">
+                    <p>Loading orders...</p>
+                  </div>
+                ) : (
+                  <table className="orders-table">
+                    <thead>
+                      <tr>
+                        <th>Order ID</th>
+                        <th>Customer Name</th>
+                        <th>Order Date</th>
+                        <th>Items</th>
+                        <th>Payment Status</th>
+                        <th>Order Status</th>
+                        <th>Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {currentOrders.map(order => (
+                        <tr key={order.id}>
+                          <td className="order-id-cell">{order.sale_number || 'N/A'}</td>
+                          <td>
+                            <div className="customer-info">
+                              <h4>{order.customer_name || 'Unknown Customer'}</h4>
+                            </div>
+                          </td>
+                          <td>{order.created_at ? new Date(order.created_at).toLocaleDateString() : 'N/A'}</td>
+                          <td>
+                            <div className="product-list">
+                              <span className="product-names" title={getOrderItemsText(order.id)}>
+                                {getOrderItemsText(order.id)}
+                              </span>
+                            </div>
+                          </td>
+                          <td>
+                            <span className={`payment-status-badge ${getPaymentStatusClassName(order.payment)}`}>
+                              {order.payment || 'Unknown'}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`order-status-badge ${getStatusClassName(order.status)}`}>
+                              {order.status || 'Unknown'}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="action-buttons">
+                              <button
+                                onClick={() => handleViewOrder(order)}
+                                className="view-btn"
+                                title="View Order"
+                              >
+                                <BsEye />
+                              </button>
+                              <button
+                                onClick={() => handleUpdateOrder(order)}
+                                className="update-btn"
+                                title="Update Order"
+                              >
+                                <BsPencil />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
 
               {/* Pagination and Results Info */}
@@ -533,6 +560,7 @@ const OrdersPage = () => {
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         onSave={handleSaveChanges}
+        ordersWithItems={ordersWithItems}
       />
     </>
   );

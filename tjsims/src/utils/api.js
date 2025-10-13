@@ -84,6 +84,134 @@ export const productAPI = {
   },
 };
 
+// Sales API functions
+export const salesAPI = {
+  // Create a new sale
+  createSale: async (saleData) => {
+    const response = await fetch(`${API_BASE_URL}/sales`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(saleData),
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  },
+
+  // Get all sales with optional filters
+  getSales: async (filters = {}) => {
+    const params = new URLSearchParams();
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) {
+        params.append(key, value);
+      }
+    });
+
+    const queryString = params.toString();
+    const url = `${API_BASE_URL}/sales${queryString ? `?${queryString}` : ''}`;
+
+    const response = await fetch(url, {
+      credentials: 'include'
+    });
+    const result = await handleResponse(response);
+
+    // Backend returns { success: true, data: { sales: [], pagination: {} } }
+    // Extract the sales array from the response
+    return result.data?.sales || [];
+  },
+
+  // Get sales statistics
+  getSalesStats: async (dateFrom, dateTo) => {
+    const params = new URLSearchParams();
+    if (dateFrom) params.append('date_from', dateFrom);
+    if (dateTo) params.append('date_to', dateTo);
+
+    const queryString = params.toString();
+    const url = `${API_BASE_URL}/sales/stats${queryString ? `?${queryString}` : ''}`;
+
+    const response = await fetch(url, {
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  },
+
+  // Get sale by ID
+  getSaleById: async (id) => {
+    const response = await fetch(`${API_BASE_URL}/sales/${id}`, {
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  },
+
+  // Get sale items
+  getSaleItems: async (saleId) => {
+    const response = await fetch(`${API_BASE_URL}/sales/${saleId}/items`, {
+      credentials: 'include'
+    });
+    const result = await handleResponse(response);
+
+    // Backend returns { success: true, data: items[] }
+    // Extract the items array from the response
+    return result.data || [];
+  },
+
+  // Update sale
+  updateSale: async (id, saleData) => {
+    const response = await fetch(`${API_BASE_URL}/sales/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(saleData),
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  },
+
+  // Delete sale
+  deleteSale: async (id) => {
+    const response = await fetch(`${API_BASE_URL}/sales/${id}`, {
+      method: 'DELETE',
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  },
+};
+
+// Inventory API functions
+export const inventoryAPI = {
+  // Get products with inventory information
+  getProductsWithInventory: async () => {
+    const response = await fetch(`${API_BASE_URL}/inventory/products`, {
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  },
+
+  // Get inventory statistics
+  getInventoryStats: async () => {
+    const response = await fetch(`${API_BASE_URL}/inventory/stats`, {
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  },
+
+  // Update product stock
+  updateStock: async (productId, quantity, reorderPoint = null) => {
+    const response = await fetch(`${API_BASE_URL}/inventory/${productId}/stock`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ quantity, reorderPoint }),
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  },
+};
+
 // Health check
 export const checkAPIHealth = async () => {
   try {
