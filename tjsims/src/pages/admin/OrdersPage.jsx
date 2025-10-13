@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Navbar from '../../components/admin/Navbar';
 import { BsSearch, BsEye, BsPencil } from 'react-icons/bs';
 import '../../styles/OrdersPage.css';
@@ -6,14 +6,16 @@ import { salesAPI } from '../../utils/api';
 
 // Order Modal Component
 const OrderModal = ({ order, isOpen, onClose, onSave, ordersWithItems }) => {
-  const [editPaymentStatus, setEditPaymentStatus] = useState(order?.payment || '');
-  const [editOrderStatus, setEditOrderStatus] = useState(order?.status || '');
+  const [editPaymentStatus, setEditPaymentStatus] = useState('');
+  const [editOrderStatus, setEditOrderStatus] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (order) {
-      setEditPaymentStatus(order.payment);
-      setEditOrderStatus(order.status);
+      console.log('Modal order data:', order);
+      console.log('Modal order status:', order.status);
+      setEditPaymentStatus(order.payment || '');
+      setEditOrderStatus(order.status || 'Pending');
     }
   }, [order]);
 
@@ -22,12 +24,30 @@ const OrderModal = ({ order, isOpen, onClose, onSave, ordersWithItems }) => {
   // Get sale items for this order from the pre-loaded data
   const saleItems = ordersWithItems[order.id] || [];
 
+  // Check if order is in a final state (Completed or Cancelled)
+  const isOrderFinal = order.status === 'Completed' || order.status === 'Cancelled';
+  const canUpdateOrder = !isOrderFinal;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!canUpdateOrder) {
+      alert('Cannot update order - order is already completed or cancelled');
+      return;
+    }
+
     setSaving(true);
 
     try {
+      console.log('Submitting order update:', {
+        orderId: order.id,
+        newPaymentStatus: editPaymentStatus,
+        newOrderStatus: editOrderStatus
+      });
+
       await onSave(order.id, editPaymentStatus, editOrderStatus);
+
+      console.log('Order update successful');
     } catch (error) {
       console.error('Error saving order:', error);
     } finally {
@@ -62,14 +82,30 @@ const OrderModal = ({ order, isOpen, onClose, onSave, ordersWithItems }) => {
               </div>
               <div className="form-group">
                 <label>Current Order Status</label>
-                <input type="text" value={order.status} readOnly className="form-input readonly" />
+                <input
+                  type="text"
+                  value={order.status}
+                  readOnly
+                  className={`form-input readonly ${isOrderFinal ? 'final-status' : ''}`}
+                />
               </div>
             </div>
+
+            {isOrderFinal && (
+              <div className="final-order-notice">
+                <p>⚠️ This order is in a final state ({order.status}) and cannot be modified.</p>
+              </div>
+            )}
 
             <div className="form-row">
               <div className="form-group">
                 <label>Update Payment Status</label>
-                <select value={editPaymentStatus} onChange={(e) => setEditPaymentStatus(e.target.value)} className="form-input">
+                <select
+                  value={editPaymentStatus}
+                  onChange={(e) => setEditPaymentStatus(e.target.value)}
+                  className="form-input"
+                  disabled={!canUpdateOrder}
+                >
                   <option value="Cash">Cash</option>
                   <option value="GCash">GCash</option>
                   <option value="Card">Card</option>
@@ -77,11 +113,15 @@ const OrderModal = ({ order, isOpen, onClose, onSave, ordersWithItems }) => {
               </div>
               <div className="form-group">
                 <label>Update Order Status</label>
-                <select value={editOrderStatus} onChange={(e) => setEditOrderStatus(e.target.value)} className="form-input">
+                <select
+                  value={editOrderStatus}
+                  onChange={(e) => setEditOrderStatus(e.target.value)}
+                  className="form-input"
+                  disabled={!canUpdateOrder}
+                >
+                  <option value="Pending">Pending</option>
                   <option value="Processing">Processing</option>
-                  <option value="Confirmed">Confirmed</option>
-                  <option value="Shipped">Shipped</option>
-                  <option value="Delivered">Delivered</option>
+                  <option value="Completed">Completed</option>
                   <option value="Cancelled">Cancelled</option>
                 </select>
               </div>
@@ -163,8 +203,12 @@ const OrderModal = ({ order, isOpen, onClose, onSave, ordersWithItems }) => {
 
           <div className="modal-actions">
             <button type="button" onClick={onClose} className="cancel-btn">Cancel</button>
-            <button type="submit" className="confirm-btn" disabled={saving}>
-              {saving ? 'Saving...' : 'Save Changes'}
+            <button
+              type="submit"
+              className={`confirm-btn ${!canUpdateOrder ? 'disabled' : ''}`}
+              disabled={saving || !canUpdateOrder}
+            >
+              {saving ? 'Saving...' : canUpdateOrder ? 'Save Changes' : 'Order Finalized'}
             </button>
           </div>
         </form>
@@ -273,7 +317,7 @@ const OrdersPage = () => {
   };
 
   // Order status options
-  const orderStatuses = ['All Order Status', 'Processing', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled'];
+  const orderStatuses = ['All Order Status', 'Pending', 'Processing', 'Completed', 'Cancelled'];
 
   // Payment status options
   const paymentStatuses = ['All Payment Status', 'Cash', 'GCash', 'Card'];
@@ -296,13 +340,18 @@ const OrdersPage = () => {
   const currentOrders = filteredOrders.slice(startIndex, endIndex);
   const totalFilteredOrders = filteredOrders.length;
 
-  // Calculate stats (add safety checks)
-  const totalOrders = (orders || []).length;
-  const pendingOrders = (orders || []).filter(order => order.status === 'Processing').length;
-  const paidOrders = (orders || []).filter(order => order.payment === 'Cash' || order.payment === 'GCash' || order.payment === 'Card').length;
-  const totalRevenue = (orders || [])
-    .filter(order => order.payment !== 'Cancelled')
-    .reduce((sum, order) => sum + parseFloat(order.total || 0), 0);
+  // Calculate stats reactively (add safety checks)
+  const stats = useMemo(() => {
+    const ordersList = orders || [];
+    return {
+      totalOrders: ordersList.length,
+      pendingOrders: ordersList.filter(order => order.status === 'Processing').length,
+      paidOrders: ordersList.filter(order => order.payment === 'Cash' || order.payment === 'GCash' || order.payment === 'Card').length,
+      totalRevenue: ordersList
+        .filter(order => order.payment !== 'Cancelled')
+        .reduce((sum, order) => sum + parseFloat(order.total || 0), 0)
+    };
+  }, [orders]);
 
   // Reset to first page when filters change
   useEffect(() => {
@@ -335,17 +384,41 @@ const OrdersPage = () => {
   // Handle save changes from modal (update order status)
   const handleSaveChanges = async (orderId, newPaymentStatus, newOrderStatus) => {
     try {
-      await salesAPI.updateSale(orderId, {
-        payment: newPaymentStatus,
-        status: newOrderStatus
+      console.log('🔄 Starting order update:', {
+        orderId,
+        newPaymentStatus,
+        newOrderStatus,
+        currentOrderStatus: selectedOrder?.status
       });
 
-      // Refresh orders and items data after update
-      await fetchOrdersWithItems();
-      handleCloseModal();
+      const updateData = {
+        payment: newPaymentStatus,
+        status: newOrderStatus
+      };
+
+      console.log('📡 Sending API request to update sale:', updateData);
+
+      const result = await salesAPI.updateSale(orderId, updateData);
+
+      console.log('✅ API Response:', result);
+
+      if (result && result.success) {
+        console.log('🎉 Order updated successfully, refreshing data...');
+
+        // Refresh orders and items data after update
+        await fetchOrdersWithItems();
+
+        console.log('📊 Data refreshed, closing modal...');
+        handleCloseModal();
+
+        console.log('✨ Modal closed successfully');
+      } else {
+        throw new Error('API returned unsuccessful response');
+      }
     } catch (error) {
-      console.error('Error updating order:', error);
-      alert('Failed to update order. Please try again.');
+      console.error('❌ Error updating order:', error);
+      console.error('❌ Error details:', error.message);
+      alert(`Failed to update order: ${error.message}`);
     }
   };
 
@@ -416,28 +489,28 @@ const OrdersPage = () => {
               <div className="orders-stat-card">
                 <div className="stat-info">
                   <h3>Total Orders</h3>
-                  <p className="stat-number total-orders">{totalOrders}</p>
+                  <p className="stat-number total-orders">{stats.totalOrders}</p>
                 </div>
               </div>
 
               <div className="orders-stat-card">
                 <div className="stat-info">
                   <h3>Pending Orders</h3>
-                  <p className="stat-number pending-orders">{pendingOrders}</p>
+                  <p className="stat-number pending-orders">{stats.pendingOrders}</p>
                 </div>
               </div>
 
               <div className="orders-stat-card">
                 <div className="stat-info">
                   <h3>Paid Orders</h3>
-                  <p className="stat-number paid-orders">{paidOrders}</p>
+                  <p className="stat-number paid-orders">{stats.paidOrders}</p>
                 </div>
               </div>
 
               <div className="orders-stat-card">
                 <div className="stat-info">
                   <h3>Total Revenue</h3>
-                  <p className="stat-number total-revenue">₱{totalRevenue.toLocaleString()}</p>
+                  <p className="stat-number total-revenue">₱{stats.totalRevenue.toLocaleString()}</p>
                 </div>
               </div>
             </div>

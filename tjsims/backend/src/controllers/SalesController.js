@@ -177,13 +177,31 @@ export class SalesController {
   static async updateSale(req, res) {
     try {
       const { id } = req.params;
-      const { customer_name, contact, payment, total } = req.body;
+      const { customer_name, contact, payment, total, status } = req.body;
+
+      // First, check if the sale exists and get current status
+      const currentSale = await Sales.findById(id);
+      if (!currentSale) {
+        return res.status(404).json({
+          success: false,
+          message: 'Sale not found'
+        });
+      }
+
+      // Check if the order is in a final state (Completed or Cancelled)
+      if (currentSale.status === 'Completed' || currentSale.status === 'Cancelled') {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot update order - order is already ${currentSale.status} and cannot be modified`
+        });
+      }
 
       const updateData = {};
       if (customer_name !== undefined) updateData.customer_name = customer_name;
       if (contact !== undefined) updateData.contact = contact;
       if (payment !== undefined) updateData.payment = payment;
       if (total !== undefined) updateData.total = total;
+      if (status !== undefined) updateData.status = status; // ADD THIS LINE
 
       const updated = await Sales.update(id, updateData);
 

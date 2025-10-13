@@ -976,15 +976,50 @@
   color: #666;
 }
 
-/* Loading Items State */
-.loading-items {
-  padding: 40px;
-  text-align: center;
-  color: #666;
+/* Final Order Notice */
+.final-order-notice {
+  background-color: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 8px;
+  padding: 15px 20px;
+  margin: 15px 0;
+  border-left: 4px solid #ffc107;
 }
 
-.loading-items p {
+.final-order-notice p {
   margin: 0;
-  font-size: 1.1rem;
+  color: #856404;
+  font-weight: 500;
+  font-size: 0.95rem;
 }
 
+/* Disabled Form Elements */
+.form-input:disabled,
+.status-dropdown:disabled {
+  background-color: #f8f9fa !important;
+  color: #6c757d !important;
+  cursor: not-allowed !important;
+  opacity: 0.7 !important;
+}
+
+/* Final Status Input Styling */
+.final-status {
+  background-color: #fff3cd !important;
+  color: #856404 !important;
+  border-color: #ffeaa7 !important;
+  font-weight: 600 !important;
+}
+
+/* Disabled Button Styling */
+.confirm-btn.disabled {
+  background-color: #6c757d !important;
+  color: #adb5bd !important;
+  cursor: not-allowed !important;
+  opacity: 0.7 !important;
+}
+
+.confirm-btn.disabled:hover {
+  background-color: #6c757d !important;
+  transform: none !important;
+  box-shadow: none !important;
+}

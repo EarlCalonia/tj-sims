@@ -178,7 +178,8 @@ export class Sales {
       customer_name,
       contact,
       payment,
-      total
+      total,
+      status
     } = salesData;
 
     const updates = [];
@@ -199,6 +200,10 @@ export class Sales {
     if (total !== undefined) {
       updates.push('total = ?');
       params.push(total);
+    }
+    if (status !== undefined) { // ADD THIS BLOCK
+      updates.push('status = ?');
+      params.push(status);
     }
 
     if (updates.length === 0) {
