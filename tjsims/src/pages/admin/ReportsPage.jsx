@@ -58,12 +58,8 @@ const ReportsPage = () => {
 
   // Get current data for display
   const getCurrentData = () => {
-    // Calculate start/end indices for client-side page slice
-    const start = (currentPage - 1) * itemsPerPage;
-    const end = start + itemsPerPage;
-
     if (activeTab === 'sales') {
-      // Flatten per-item rows for the page
+      // Flatten per-item rows for display (backend already handles pagination)
       const flattenedSales = salesData.flatMap(order =>
         (order.items || []).map(item => ({
           id: `${order.id}-${item.productName}-${item.quantity}-${item.unitPrice}`,
@@ -74,22 +70,20 @@ const ReportsPage = () => {
           ...item
         }))
       );
-      return flattenedSales.slice(start, end);
+      return flattenedSales;
     } else {
-      return inventoryData.slice(start, end);
+      // Backend already handles pagination, just return the data
+      return inventoryData;
     }
   };
 
   const getTotalItems = () => {
-    if (activeTab === 'sales') {
-      return salesData.reduce((total, order) => total + (order.items?.length || 0), 0);
-    } else {
-      return inventoryData.length;
-    }
+    // Use pagination.total from backend instead of calculating from current page data
+    return pagination.total || 0;
   };
 
   const getTotalPages = () => {
-    return pagination.totalPages || Math.ceil(getTotalItems() / itemsPerPage);
+    return pagination.total_pages || Math.ceil(getTotalItems() / itemsPerPage);
   };
 
   // Handle page change
@@ -300,7 +294,7 @@ const ReportsPage = () => {
               {/* Pagination and Results Info */}
               <div className="table-footer">
                 <div className="results-info">
-                  Showing {getTotalItems() > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} to {Math.min(currentPage * itemsPerPage, getTotalItems())} of {getTotalItems()} {activeTab === 'sales' ? 'items' : 'products'}
+                  Showing {pagination.from || 0} to {pagination.to || 0} of {getTotalItems()} {activeTab === 'sales' ? 'sales' : 'products'}
                 </div>
 
                 {getTotalPages() > 1 && (
