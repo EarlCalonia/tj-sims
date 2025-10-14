@@ -120,6 +120,7 @@ export class Inventory {
       LEFT JOIN inventory i ON p.product_id = i.product_id
       LEFT JOIN suppliers s ON i.supplier_id = s.id
       WHERE 1=1
+      AND p.status = 'Active'
     `;
     
     const params = [];

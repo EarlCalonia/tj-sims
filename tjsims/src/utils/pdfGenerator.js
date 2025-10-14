@@ -1,8 +1,26 @@
 import jsPDF from 'jspdf';
+import logoUrl from '../assets/tcj_logo.png?url';
+
+// Helper to load image URL into DataURL for jsPDF
+const loadImageAsDataURL = async (url) => {
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+};
 
 // Utility function to format currency
 const formatCurrency = (amount) => {
-  return `P${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const num = Number(amount) || 0;
+  return `P${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
 // Utility function to format date
@@ -17,45 +35,59 @@ const formatDate = (dateString) => {
 // Generate Sales Report PDF
 export const generateSalesReportPDF = async (salesData, startDate, endDate, adminName) => {
   const doc = new jsPDF();
-
-  // Header section - centered
   const pageWidth = doc.internal.pageSize.getWidth();
   const centerX = pageWidth / 2;
 
-  doc.setFontSize(16);
+  const logoDataUrl = await loadImageAsDataURL(logoUrl);
+
+  // Header section - centered
+  // Header with logo and titles
+if (logoDataUrl) {
+  const pageWidth = doc.internal.pageSize.getWidth(); // page width
+  const imgWidth = 30; // image width
+  const imgHeight = 22; // image height
+  const x = (pageWidth - imgWidth) / 2; // center horizontally
+  const y = 12; // top margin
+  doc.addImage(logoDataUrl, 'PNG', x, y, imgWidth, imgHeight);
+
+  const centerX = pageWidth / 2;
+
+  // Title
+  const titleY = y + imgHeight + 5; // 5 = space below image
+  doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
+  doc.text('Sales Report', centerX, titleY, { align: 'center' });
 
-  // TJC Auto Supply (centered)
-  doc.text('TJC Auto Supply', centerX, 25, { align: 'center' });
-
-  // Sales Report (centered)
-  doc.text('Sales Report', centerX, 35, { align: 'center' });
-
-  // Date range (centered)
+  // Date / period
+  const dateY = titleY + 7; // 7 = space below title
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Period: ${formatDate(startDate)} - ${formatDate(endDate)}`, centerX, 45, { align: 'center' });
+  doc.text(`Period: ${formatDate(startDate)} - ${formatDate(endDate)}`, centerX, dateY, { align: 'center' });
+}
 
   // Filter data by date range
-  const filteredData = salesData.filter(item => {
-    const itemDate = new Date(item.orderDate);
-    return itemDate >= new Date(startDate) && itemDate <= new Date(endDate);
+  // Filter orders by date and status (Completed only)
+  const filteredOrders = (salesData || []).filter(order => {
+    const d = new Date(order.orderDate);
+    const withinRange = d >= new Date(startDate) && d <= new Date(endDate);
+    const isCompleted = (order.status ?? 'Completed') === 'Completed';
+    return withinRange && isCompleted;
   });
 
   // Flatten the filtered data for table display
-  const flattenedData = filteredData.flatMap(order =>
+  const flattenedData = filteredOrders.flatMap(order =>
     order.items.map(item => ({
       orderId: order.orderId,
       customerName: order.customerName,
       orderDate: order.orderDate,
       productName: item.productName,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-      totalPrice: item.totalPrice
+      quantity: Number(item.quantity) || 0,
+      unitPrice: Number(item.unitPrice) || 0,
+      totalPrice: Number(item.totalPrice) || 0
     }))
   );
 
-  let yPosition = 60;
+  let yPosition = 50;
 
   // Draw separator line
   doc.line(20, yPosition, 190, yPosition);
@@ -118,13 +150,13 @@ export const generateSalesReportPDF = async (salesData, startDate, endDate, admi
       ? item.productName.substring(0, maxProductNameLength) + '...'
       : item.productName;
 
-    doc.text(item.orderDate, colPositions.date, yPosition);
+    doc.text(formatDate(item.orderDate), colPositions.date, yPosition);
     doc.text(productName, colPositions.productName, yPosition);
-    doc.text(item.quantity.toString(), colPositions.quantity, yPosition);
-    doc.text(formatCurrency(item.unitPrice), colPositions.unitPrice, yPosition);
-    doc.text(formatCurrency(item.totalPrice), colPositions.totalSales, yPosition);
+    doc.text((Number(item.quantity) || 0).toString(), colPositions.quantity, yPosition);
+    doc.text(formatCurrency(Number(item.unitPrice) || 0), colPositions.unitPrice, yPosition);
+    doc.text(formatCurrency(Number(item.totalPrice) || 0), colPositions.totalSales, yPosition);
 
-    grandTotal += item.totalPrice;
+    grandTotal += (Number(item.totalPrice) || 0);
     yPosition += 6;
   });
 
@@ -145,16 +177,16 @@ export const generateSalesReportPDF = async (salesData, startDate, endDate, admi
   yPosition += 15;
 
   // Calculate summary data
-  const totalRevenue = filteredData.reduce((sum, order) => sum + order.totalAmount, 0);
-  const totalItems = filteredData.reduce((sum, order) => {
-    return sum + order.items.reduce((itemSum, item) => itemSum + item.quantity, 0);
+  const totalRevenue = filteredOrders.reduce((sum, order) => sum + (Number(order.totalAmount) || 0), 0);
+  const totalItems = filteredOrders.reduce((sum, order) => {
+    return sum + order.items.reduce((itemSum, item) => itemSum + (Number(item.quantity) || 0), 0);
   }, 0);
-  const totalTransactions = filteredData.length;
+  const totalTransactions = filteredOrders.length;
   const avgTransactionValue = totalTransactions > 0 ? totalRevenue / totalTransactions : 0;
 
   // Find best selling product
   const productCounts = {};
-  filteredData.forEach(order => {
+  filteredOrders.forEach(order => {
     order.items.forEach(item => {
       productCounts[item.productName] = (productCounts[item.productName] || 0) + item.quantity;
     });
@@ -212,97 +244,90 @@ export const generateSalesReportPDF = async (salesData, startDate, endDate, admi
 export const generateInventoryReportPDF = async (inventoryData, startDate, endDate, adminName) => {
   const doc = new jsPDF();
 
+  const pageWidth = doc.internal.pageSize.getWidth();
+  let yPosition = 20;
+
+  // Header: Logo + Title + Period
   try {
-    // Add TJC logo
-    doc.setFontSize(24);
-    doc.setFont('helvetica', 'bold');
-    doc.text('TJC', 20, 35);
-
-    // Header with title
-    doc.setFontSize(18);
-    doc.text('Inventory Report', 60, 35);
-
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Period: ${formatDate(startDate)} - ${formatDate(endDate)}`, 20, 50);
+    const logoDataUrl = await loadImageAsDataURL(logoUrl);// replace with your logo loading function
+    const imgWidth = 30;
+    const imgHeight = 22;
+    const x = (pageWidth - imgWidth) / 2;
+    doc.addImage(logoDataUrl, 'PNG', x, yPosition, imgWidth, imgHeight);
+    yPosition += imgHeight + 5;
   } catch (error) {
     console.warn('Could not load logo:', error);
-    // Fallback header without logo
-    doc.setFontSize(20);
-    doc.setFont('helvetica', 'bold');
-    doc.text('TJSIMS', 20, 30);
-
-    doc.setFontSize(16);
-    doc.text('Inventory Report', 20, 45);
-
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Period: ${formatDate(startDate)} - ${formatDate(endDate)}`, 20, 55);
   }
 
-  // Filter data by date range (inventory reports typically don't filter by date, but keeping for consistency)
-  const filteredData = inventoryData; // You might want to filter by last updated date if available
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.text('Inventory Report', pageWidth / 2, yPosition, { align: 'center' });
+  yPosition += 7;
 
-  // Inventory table
-  let yPosition = 70;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.text(`Period: ${formatDate(startDate)} - ${formatDate(endDate)}`, pageWidth / 2, yPosition, { align: 'center' });
+  yPosition += 10;
 
   // Table headers
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
-
-  // Column positions
   const colPositions = {
     productName: 20,
-    category: 65,
-    brand: 100,
-    quantity: 135,
-    status: 160
+    category: 70,
+    brand: 110,
+    quantity: 150,
+    status: 175
   };
 
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
   doc.text('Product Name', colPositions.productName, yPosition);
   doc.text('Category', colPositions.category, yPosition);
   doc.text('Brand', colPositions.brand, yPosition);
   doc.text('Remaining Qty', colPositions.quantity, yPosition);
   doc.text('Status', colPositions.status, yPosition);
+  yPosition += 3;
 
-  yPosition += 8;
-
-  // Draw table header line
-  doc.line(20, yPosition, 190, yPosition);
+  // Header line
+  doc.setLineWidth(0.5);
+  doc.line(15, yPosition, pageWidth - 15, yPosition);
   yPosition += 5;
 
-  // Table data
+  // Table rows
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
 
-  filteredData.forEach((item, index) => {
-    if (yPosition > 250) { // Check if we need a new page
+  inventoryData.forEach((item, index) => {
+    // Check for new page
+    if (yPosition > 250) {
       doc.addPage();
-      yPosition = 30;
+      yPosition = 20;
 
-      // Repeat headers on new page
-      doc.setFontSize(9);
+      // Repeat headers
       doc.setFont('helvetica', 'bold');
       doc.text('Product Name', colPositions.productName, yPosition);
       doc.text('Category', colPositions.category, yPosition);
       doc.text('Brand', colPositions.brand, yPosition);
       doc.text('Remaining Qty', colPositions.quantity, yPosition);
       doc.text('Status', colPositions.status, yPosition);
-
-      yPosition += 8;
-      doc.line(20, yPosition, 190, yPosition);
+      yPosition += 3;
+      doc.line(15, yPosition, pageWidth - 15, yPosition);
       yPosition += 5;
-
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
     }
 
-    // Ensure text fits in columns
+    // Optional: alternating row color
+    if (index % 2 === 0) {
+      doc.setFillColor(240, 240, 240); // light gray
+      doc.rect(15, yPosition - 4, pageWidth - 30, 6, 'F');
+    }
+
     const maxProductNameLength = 35;
     const productName = item.productName.length > maxProductNameLength
       ? item.productName.substring(0, maxProductNameLength) + '...'
       : item.productName;
 
+    doc.setTextColor(0, 0, 0);
     doc.text(productName, colPositions.productName, yPosition);
     doc.text(item.category, colPositions.category, yPosition);
     doc.text(item.brand, colPositions.brand, yPosition);
@@ -312,17 +337,15 @@ export const generateInventoryReportPDF = async (inventoryData, startDate, endDa
     yPosition += 6;
   });
 
-  // Draw line below table
   yPosition += 5;
-  doc.line(20, yPosition, 190, yPosition);
+  doc.line(15, yPosition, pageWidth - 15, yPosition);
   yPosition += 10;
 
-  // Calculate summary data
-  const totalItems = filteredData.length;
-  const lowStockItems = filteredData.filter(item => item.stockStatus === 'Low Stock').length;
-  const totalRemaining = filteredData.reduce((sum, item) => sum + item.currentStock, 0);
+  // Summary
+  const totalItems = inventoryData.length;
+  const lowStockItems = inventoryData.filter(item => item.stockStatus === 'Low Stock').length;
+  const totalRemaining = inventoryData.reduce((sum, item) => sum + item.currentStock, 0);
 
-  // Summary section
   if (yPosition > 200) {
     doc.addPage();
     yPosition = 30;
@@ -331,9 +354,9 @@ export const generateInventoryReportPDF = async (inventoryData, startDate, endDa
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.text('Inventory Summary', 20, yPosition);
-  yPosition += 12;
+  yPosition += 8;
 
-  doc.setFontSize(9);
+  doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.text(`Total Items: ${totalItems}`, 20, yPosition);
   yPosition += 6;
@@ -347,10 +370,12 @@ export const generateInventoryReportPDF = async (inventoryData, startDate, endDa
     doc.setPage(i);
     doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Generated by: ${adminName}`, 20, 280);
-    doc.text(`Report Generated: ${formatDate(new Date().toISOString().split('T')[0])}`, 20, 285);
-    doc.text(`Page ${i} of ${pageCount}`, 180, 285);
+    doc.text(`Generated by: ${adminName}`, 15, 285);
+    doc.text(`Report Generated: ${formatDate(new Date().toISOString().split('T')[0])}`, 15, 290);
+    doc.text(`Page ${i} of ${pageCount}`, pageWidth - 15, 290, { align: 'right' });
   }
+
+ 
 
   return doc;
 };

@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Navbar from '../../components/admin/Navbar';
-import { BsSearch, BsPlus, BsPencil, BsTrash } from 'react-icons/bs';
+import { BsSearch, BsPlus, BsPencil } from 'react-icons/bs';
 import '../../styles/ProductPage.css';
-import { productAPI, checkAPIHealth } from '../../utils/api.js';
+import { productAPI } from '../../utils/api.js';
 
 const ProductPage = () => {
   // State for products
@@ -27,11 +27,36 @@ const ProductPage = () => {
   // Categories for filter
   const statuses = ['Active', 'Inactive'];
 
-  // Load products and categories/brands on component mount
+  // Load products and categories/brands on component mount (guard against StrictMode double-invoke)
+  const didInit = useRef(false);
   useEffect(() => {
-    loadProducts();
-    loadCategoriesAndBrands();
+    if (didInit.current) return;
+    didInit.current = true;
+    
+    const initData = async () => {
+      await loadProducts();
+      // Small delay before fetching categories/brands to avoid burst
+      await new Promise(r => setTimeout(r, 150));
+      await loadCategoriesAndBrands();
+    };
+    
+    initData();
   }, []);
+
+  // Retry helper for API calls
+  const withRetry = async (fn, attempt = 0) => {
+    try {
+      return await fn();
+    } catch (e) {
+      const is429 = (e.message || '').toLowerCase().includes('too many requests');
+      if (is429 && attempt < 3) {
+        const delay = (attempt + 1) * 600; // 600ms, 1200ms, 1800ms
+        await new Promise(r => setTimeout(r, delay));
+        return withRetry(fn, attempt + 1);
+      }
+      throw e;
+    }
+  };
 
   // Load products from API
   const loadProducts = async () => {
@@ -46,7 +71,7 @@ const ProductPage = () => {
       if (selectedBrand && selectedBrand !== 'All Brand') filters.brand = selectedBrand;
       if (selectedStatus && selectedStatus !== 'All Status') filters.status = selectedStatus;
 
-      const response = await productAPI.getProducts(filters);
+      const response = await withRetry(() => productAPI.getProducts(filters));
       if (response.success) {
         setProducts(response.data.products || []);
       } else {
@@ -60,18 +85,19 @@ const ProductPage = () => {
     }
   };
 
-  // Load categories and brands
+  // Load categories and brands (staggered to avoid rate limiting)
   const loadCategoriesAndBrands = async () => {
     try {
-      const [categoriesResponse, brandsResponse] = await Promise.all([
-        productAPI.getCategories(),
-        productAPI.getBrands()
-      ]);
-
+      // Fetch categories first
+      const categoriesResponse = await withRetry(() => productAPI.getCategories());
       if (categoriesResponse.success) {
         setCategories(categoriesResponse.data || []);
       }
-
+      
+      // Small delay before fetching brands
+      await new Promise(r => setTimeout(r, 150));
+      
+      const brandsResponse = await withRetry(() => productAPI.getBrands());
       if (brandsResponse.success) {
         setBrands(brandsResponse.data || []);
       }
@@ -122,20 +148,6 @@ const ProductPage = () => {
     setIsModalOpen(true);
   };
 
-  // Handle delete product
-  const handleDeleteProduct = async (productId) => {
-    if (window.confirm('Are you sure you want to delete this product?')) {
-      try {
-        const response = await productAPI.deleteProduct(productId);
-        if (response.success) {
-          await loadProducts(); // Refresh the products list
-        }
-      } catch (error) {
-        console.error('Error deleting product:', error);
-        alert('Error deleting product: ' + error.message);
-      }
-    }
-  };
 
   // Handle form submission
   const handleSubmitProduct = async (e) => {
@@ -293,7 +305,7 @@ const ProductPage = () => {
                       <th>Brand</th>
                       <th>Price</th>
                       <th>Status</th>
-                      <th>Actions</th>
+                      <th>Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -332,13 +344,6 @@ const ProductPage = () => {
                                 title="Edit Product"
                               >
                                 <BsPencil />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteProduct(product.id)}
-                                className="delete-btn"
-                                title="Delete Product"
-                              >
-                                <BsTrash />
                               </button>
                             </div>
                           </td>

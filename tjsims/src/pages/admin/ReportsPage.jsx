@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Navbar from '../../components/admin/Navbar';
 import PDFExportModal from '../../components/admin/PDFExportModal';
 import { generateSalesReportPDF, generateInventoryReportPDF } from '../../utils/pdfGenerator';
+import { reportsAPI } from '../../utils/api';
 import { BsDownload, BsFileEarmarkPdf } from 'react-icons/bs';
 import '../../styles/ReportsPage.css';
 
@@ -14,114 +15,58 @@ const ReportsPage = () => {
   const [showPDFModal, setShowPDFModal] = useState(false);
   const [adminName] = useState('Admin User'); // You can get this from authentication context
 
-  // Mock data for sales report
-  const salesData = [
-    {
-      id: 1,
-      orderId: 'ORD-001',
-      customerName: 'John Doe',
-      orderDate: '2024-01-15',
-      items: [
-        { productName: 'Engine Oil Filter', quantity: 1, unitPrice: 450, totalPrice: 450 },
-        { productName: 'Brake Pad Set', quantity: 2, unitPrice: 600, totalPrice: 1200 }
-      ],
-      totalAmount: 1650
-    },
-    {
-      id: 2,
-      orderId: 'ORD-002',
-      customerName: 'Jane Smith',
-      orderDate: '2024-01-14',
-      items: [
-        { productName: 'Shock Absorber', quantity: 1, unitPrice: 3500, totalPrice: 3500 }
-      ],
-      totalAmount: 3500
-    },
-    {
-      id: 3,
-      orderId: 'ORD-003',
-      customerName: 'Mike Johnson',
-      orderDate: '2024-01-13',
-      items: [
-        { productName: 'Radiator Hose', quantity: 1, unitPrice: 500, totalPrice: 500 },
-        { productName: 'CV Joint Boot', quantity: 1, unitPrice: 500, totalPrice: 500 }
-      ],
-      totalAmount: 1000
-    },
-    {
-      id: 4,
-      orderId: 'ORD-004',
-      customerName: 'Sarah Wilson',
-      orderDate: '2024-01-12',
-      items: [
-        { productName: 'Engine Oil Filter', quantity: 1, unitPrice: 450, totalPrice: 450 }
-      ],
-      totalAmount: 450
-    },
-    {
-      id: 5,
-      orderId: 'ORD-005',
-      customerName: 'David Brown',
-      orderDate: '2024-01-11',
-      items: [
-        { productName: 'Brake Pad Set', quantity: 2, unitPrice: 600, totalPrice: 1200 },
-        { productName: 'Shock Absorber', quantity: 2, unitPrice: 1750, totalPrice: 3500 }
-      ],
-      totalAmount: 4700
-    }
-  ];
+  // API state
+  const [salesData, setSalesData] = useState([]);
+  const [inventoryData, setInventoryData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState({});
 
-  // Mock data for inventory report
-  const inventoryData = [
-    {
-      id: 1,
-      productName: 'Engine Oil Filter',
-      category: 'Filters',
-      brand: 'Bosch',
-      currentStock: 25,
-      stockStatus: 'In Stock'
-    },
-    {
-      id: 2,
-      productName: 'Brake Pad Set',
-      category: 'Brakes',
-      brand: 'Brembo',
-      currentStock: 8,
-      stockStatus: 'Low Stock'
-    },
-    {
-      id: 3,
-      productName: 'Shock Absorber',
-      category: 'Suspension',
-      brand: 'KYB',
-      currentStock: 0,
-      stockStatus: 'Out of Stock'
-    },
-    {
-      id: 4,
-      productName: 'Radiator Hose',
-      category: 'Cooling System',
-      brand: 'Gates',
-      currentStock: 15,
-      stockStatus: 'In Stock'
-    },
-    {
-      id: 5,
-      productName: 'CV Joint Boot',
-      category: 'Drive Train',
-      brand: 'Moog',
-      currentStock: 12,
-      stockStatus: 'In Stock'
-    }
-  ];
+  // Fetch data from API
+  useEffect(() => {
+    fetchReportData();
+  }, [activeTab, startDate, endDate, currentPage]);
 
-  // Pagination logic - modified to handle flattened sales data
+  const fetchReportData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const filters = {
+        page: currentPage,
+        limit: itemsPerPage,
+        ...(startDate && { start_date: startDate }),
+        ...(endDate && { end_date: endDate })
+      };
+
+      if (activeTab === 'sales') {
+        const result = await reportsAPI.getSalesReport(filters);
+        setSalesData(result.sales || []);
+        setPagination(result.pagination || {});
+      } else {
+        const result = await reportsAPI.getInventoryReport(filters);
+        setInventoryData(result.inventory || []);
+        setPagination(result.pagination || {});
+      }
+    } catch (err) {
+      console.error('Error fetching report data:', err);
+      setError('Failed to load report data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Get current data for display
   const getCurrentData = () => {
+    // Calculate start/end indices for client-side page slice
+    const start = (currentPage - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+
     if (activeTab === 'sales') {
-      // Flatten sales data for display
+      // Flatten per-item rows for the page
       const flattenedSales = salesData.flatMap(order =>
-        order.items.map(item => ({
-          id: `${order.id}-${item.productName}`,
+        (order.items || []).map(item => ({
+          id: `${order.id}-${item.productName}-${item.quantity}-${item.unitPrice}`,
           orderId: order.orderId,
           customerName: order.customerName,
           orderDate: order.orderDate,
@@ -129,25 +74,23 @@ const ReportsPage = () => {
           ...item
         }))
       );
-      const startIndex = (currentPage - 1) * itemsPerPage;
-      const endIndex = startIndex + itemsPerPage;
-      return flattenedSales.slice(startIndex, endIndex);
+      return flattenedSales.slice(start, end);
     } else {
-      const startIndex = (currentPage - 1) * itemsPerPage;
-      const endIndex = startIndex + itemsPerPage;
-      return inventoryData.slice(startIndex, endIndex);
+      return inventoryData.slice(start, end);
     }
   };
 
   const getTotalItems = () => {
     if (activeTab === 'sales') {
-      return salesData.reduce((total, order) => total + order.items.length, 0);
+      return salesData.reduce((total, order) => total + (order.items?.length || 0), 0);
     } else {
       return inventoryData.length;
     }
   };
 
-  const totalPages = Math.ceil(getTotalItems() / itemsPerPage);
+  const getTotalPages = () => {
+    return pagination.totalPages || Math.ceil(getTotalItems() / itemsPerPage);
+  };
 
   // Handle page change
   const handlePageChange = (page) => {
@@ -155,9 +98,22 @@ const ReportsPage = () => {
   };
 
   // Handle export functions
-  const handleExportCSV = () => {
-    // CSV export logic would go here
-    console.log('Exporting CSV...');
+  const handleExportCSV = async () => {
+    try {
+      const filters = {
+        ...(startDate && { start_date: startDate }),
+        ...(endDate && { end_date: endDate })
+      };
+
+      if (activeTab === 'sales') {
+        await reportsAPI.exportSalesReportCSV(filters);
+      } else {
+        await reportsAPI.exportInventoryReportCSV(filters);
+      }
+    } catch (error) {
+      console.error('CSV export failed:', error);
+      alert('Failed to export CSV. Please try again.');
+    }
   };
 
   const handleExportPDF = () => {
@@ -168,10 +124,20 @@ const ReportsPage = () => {
     try {
       let doc;
       if (activeTab === 'sales') {
-        doc = await generateSalesReportPDF(salesData, exportStartDate, exportEndDate, adminName);
+        // For sales, we need to fetch all sales data for the date range
+        const allSalesResult = await reportsAPI.getSalesReport({
+          start_date: exportStartDate,
+          end_date: exportEndDate,
+          limit: 1000 // Get all records for export
+        });
+        doc = await generateSalesReportPDF(allSalesResult.sales, exportStartDate, exportEndDate, adminName);
         doc.save(`Sales_Report_${exportStartDate}_to_${exportEndDate}.pdf`);
       } else {
-        doc = await generateInventoryReportPDF(inventoryData, exportStartDate, exportEndDate, adminName);
+        // For inventory, we need to fetch all inventory data
+        const allInventoryResult = await reportsAPI.getInventoryReport({
+          limit: 1000 // Get all records for export
+        });
+        doc = await generateInventoryReportPDF(allInventoryResult.inventory, exportStartDate, exportEndDate, adminName);
         doc.save(`Inventory_Report_${exportStartDate}_to_${exportEndDate}.pdf`);
       }
     } catch (error) {
@@ -254,7 +220,22 @@ const ReportsPage = () => {
             {/* Reports Table */}
             <div className="reports-table-section">
               <div className="table-container">
-                {activeTab === 'sales' ? (
+                {loading ? (
+                  <div className="loading-state">
+                    <p>Loading report data...</p>
+                  </div>
+                ) : error ? (
+                  <div className="error-state">
+                    <p>{error}</p>
+                    <button onClick={fetchReportData} className="retry-btn">
+                      Retry
+                    </button>
+                  </div>
+                ) : getCurrentData().length === 0 ? (
+                  <div className="empty-state">
+                    <p>No data available for the selected period</p>
+                  </div>
+                ) : activeTab === 'sales' ? (
                   <table className="reports-table">
                     <thead>
                       <tr>
@@ -300,9 +281,14 @@ const ReportsPage = () => {
                           <td>{item.brand}</td>
                           <td className="stock-cell">{item.currentStock}</td>
                           <td>
-                            <span className={`stock-status-badge ${item.stockStatus.toLowerCase().replace(/\s+/g, '-')}`}>
-                              {item.stockStatus}
-                            </span>
+                            <span
+  className={`stock-status-badge ${(item.stockStatus || '')
+    .toLowerCase()
+    .replace(/\s+/g, '-')}`}
+>
+  {item.stockStatus || 'N/A'}
+</span>
+
                           </td>
                         </tr>
                       ))}
@@ -317,7 +303,7 @@ const ReportsPage = () => {
                   Showing {getTotalItems() > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} to {Math.min(currentPage * itemsPerPage, getTotalItems())} of {getTotalItems()} {activeTab === 'sales' ? 'items' : 'products'}
                 </div>
 
-                {totalPages > 1 && (
+                {getTotalPages() > 1 && (
                   <div className="pagination">
                     <button
                       onClick={() => handlePageChange(currentPage - 1)}
@@ -327,7 +313,7 @@ const ReportsPage = () => {
                       Previous
                     </button>
 
-                    {Array.from({ length: totalPages }, (_, index) => index + 1).map(page => (
+                    {Array.from({ length: getTotalPages() }, (_, index) => index + 1).map(page => (
                       <button
                         key={page}
                         onClick={() => handlePageChange(page)}
@@ -339,7 +325,7 @@ const ReportsPage = () => {
 
                     <button
                       onClick={() => handlePageChange(currentPage + 1)}
-                      disabled={currentPage === totalPages}
+                      disabled={currentPage === getTotalPages()}
                       className="pagination-btn"
                     >
                       Next

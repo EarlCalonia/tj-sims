@@ -6,7 +6,7 @@ export class SalesController {
   // Create a new sale
   static async createSale(req, res) {
     try {
-      const { customer_name, contact, payment, items } = req.body;
+      const { customer_name, contact, payment, payment_status, items } = req.body;
 
       // Validate required fields
       if (!customer_name || !payment || !items || items.length === 0) {
@@ -56,6 +56,7 @@ export class SalesController {
         customer_name,
         contact,
         payment,
+        payment_status,
         total,
         items: enrichedItems
       };
@@ -177,7 +178,7 @@ export class SalesController {
   static async updateSale(req, res) {
     try {
       const { id } = req.params;
-      const { customer_name, contact, payment, total, status } = req.body;
+      const { customer_name, contact, payment, payment_status, total, status } = req.body;
 
       // First, check if the sale exists and get current status
       const currentSale = await Sales.findById(id);
@@ -200,8 +201,19 @@ export class SalesController {
       if (customer_name !== undefined) updateData.customer_name = customer_name;
       if (contact !== undefined) updateData.contact = contact;
       if (payment !== undefined) updateData.payment = payment;
+      if (payment_status !== undefined) updateData.payment_status = payment_status;
       if (total !== undefined) updateData.total = total;
       if (status !== undefined) updateData.status = status; // ADD THIS LINE
+
+      // Business rule: Completed requires Paid payment_status
+      const nextPaymentStatus = (payment_status !== undefined ? payment_status : (currentSale.payment_status || 'Unpaid'));
+      const nextOrderStatus = (status !== undefined ? status : currentSale.status);
+      if (nextOrderStatus === 'Completed' && nextPaymentStatus !== 'Paid') {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot mark order as Completed unless payment status is Paid'
+        });
+      }
 
       const updated = await Sales.update(id, updateData);
 

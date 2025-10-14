@@ -212,14 +212,97 @@ export const inventoryAPI = {
   },
 };
 
-// Health check
-export const checkAPIHealth = async () => {
-  try {
-    const response = await fetch(`${API_BASE_URL.replace('/api', '')}/health`, {
+// Reports API functions
+export const reportsAPI = {
+  // Get sales report data with date filtering and pagination
+  getSalesReport: async (filters = {}) => {
+    const params = new URLSearchParams();
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) {
+        params.append(key, value);
+      }
+    });
+
+    const queryString = params.toString();
+    const url = `${API_BASE_URL}/reports/sales${queryString ? `?${queryString}` : ''}`;
+
+    const response = await fetch(url, {
       credentials: 'include'
     });
-    return await handleResponse(response);
-  } catch (error) {
-    throw new Error('Backend server is not running. Please start the backend server first.');
-  }
+    const result = await handleResponse(response);
+
+    // Backend returns { success: true, data: { sales: [], pagination: {}, summary: {} } }
+    // Extract the sales array from the response
+    return {
+      sales: result.data?.sales || [],
+      pagination: result.data?.pagination || {},
+      summary: result.data?.summary || {}
+    };
+  },
+
+  // Get inventory report data with pagination
+  getInventoryReport: async (filters = {}) => {
+    const params = new URLSearchParams();
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) {
+        params.append(key, value);
+      }
+    });
+
+    const queryString = params.toString();
+    const url = `${API_BASE_URL}/reports/inventory${queryString ? `?${queryString}` : ''}`;
+
+    const response = await fetch(url, {
+      credentials: 'include'
+    });
+    const result = await handleResponse(response);
+
+    // Backend returns { success: true, data: { products: [] } }
+    // Extract the products array from the response and add pagination info
+    return {
+      inventory: result.data?.products || [],
+      pagination: result.data?.pagination || { totalPages: 1, currentPage: 1, totalItems: result.data?.products?.length || 0 },
+      summary: result.data?.summary || {}
+    };
+  },
+
+  // Export sales report as CSV
+  exportSalesReportCSV: async (filters = {}) => {
+    const params = new URLSearchParams();
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) {
+        params.append(key, value);
+      }
+    });
+
+    const queryString = params.toString();
+    const url = `${API_BASE_URL}/reports/sales/export/csv${queryString ? `?${queryString}` : ''}`;
+
+    const response = await fetch(url, {
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  },
+
+  // Export inventory report as CSV
+  exportInventoryReportCSV: async (filters = {}) => {
+    const params = new URLSearchParams();
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) {
+        params.append(key, value);
+      }
+    });
+
+    const queryString = params.toString();
+    const url = `${API_BASE_URL}/reports/inventory/export/csv${queryString ? `?${queryString}` : ''}`;
+
+    const response = await fetch(url, {
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  },
 };

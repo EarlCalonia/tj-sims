@@ -8,6 +8,7 @@ export class Sales {
       customer_name,
       contact,
       payment,
+      payment_status,
       total,
       items
     } = salesData;
@@ -22,9 +23,9 @@ export class Sales {
     try {
       // Insert sale record
       const [saleResult] = await connection.execute(
-        `INSERT INTO sales (sale_number, customer_name, contact, payment, total, created_at)
-         VALUES (?, ?, ?, ?, ?, NOW())`,
-        [saleNumber, customer_name, contact, payment, total]
+        `INSERT INTO sales (sale_number, customer_name, contact, payment, payment_status, total, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+        [saleNumber, customer_name, contact, payment, payment_status || 'Unpaid', total]
       );
 
       const saleId = saleResult.insertId;
@@ -178,6 +179,7 @@ export class Sales {
       customer_name,
       contact,
       payment,
+      payment_status,
       total,
       status
     } = salesData;
@@ -196,6 +198,10 @@ export class Sales {
     if (payment !== undefined) {
       updates.push('payment = ?');
       params.push(payment);
+    }
+    if (payment_status !== undefined) {
+      updates.push('payment_status = ?');
+      params.push(payment_status);
     }
     if (total !== undefined) {
       updates.push('total = ?');

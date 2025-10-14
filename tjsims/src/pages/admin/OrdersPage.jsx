@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Navbar from '../../components/admin/Navbar';
 import { BsSearch, BsEye, BsPencil } from 'react-icons/bs';
 import '../../styles/OrdersPage.css';
@@ -6,6 +6,7 @@ import { salesAPI } from '../../utils/api';
 
 // Order Modal Component
 const OrderModal = ({ order, isOpen, onClose, onSave, ordersWithItems }) => {
+  const [editPaymentMethod, setEditPaymentMethod] = useState('');
   const [editPaymentStatus, setEditPaymentStatus] = useState('');
   const [editOrderStatus, setEditOrderStatus] = useState('');
   const [saving, setSaving] = useState(false);
@@ -14,7 +15,8 @@ const OrderModal = ({ order, isOpen, onClose, onSave, ordersWithItems }) => {
     if (order) {
       console.log('Modal order data:', order);
       console.log('Modal order status:', order.status);
-      setEditPaymentStatus(order.payment || '');
+      setEditPaymentMethod(order.payment || '');
+      setEditPaymentStatus(order.payment_status || 'Unpaid');
       setEditOrderStatus(order.status || 'Pending');
     }
   }, [order]);
@@ -45,7 +47,7 @@ const OrderModal = ({ order, isOpen, onClose, onSave, ordersWithItems }) => {
         newOrderStatus: editOrderStatus
       });
 
-      await onSave(order.id, editPaymentStatus, editOrderStatus);
+      await onSave(order.id, editPaymentMethod, editPaymentStatus, editOrderStatus);
 
       console.log('Order update successful');
     } catch (error) {
@@ -78,7 +80,7 @@ const OrderModal = ({ order, isOpen, onClose, onSave, ordersWithItems }) => {
             <div className="form-row">
               <div className="form-group">
                 <label>Current Payment Status</label>
-                <input type="text" value={order.payment} readOnly className="form-input readonly" />
+                <input type="text" value={order.payment_status || 'Unpaid'} readOnly className="form-input readonly" />
               </div>
               <div className="form-group">
                 <label>Current Order Status</label>
@@ -91,6 +93,13 @@ const OrderModal = ({ order, isOpen, onClose, onSave, ordersWithItems }) => {
               </div>
             </div>
 
+            <div className="form-row">
+              <div className="form-group">
+                <label>Current Payment Method</label>
+                <input type="text" value={order.payment || ''} readOnly className="form-input readonly" />
+              </div>
+            </div>
+
             {isOrderFinal && (
               <div className="final-order-notice">
                 <p>⚠️ This order is in a final state ({order.status}) and cannot be modified.</p>
@@ -99,6 +108,19 @@ const OrderModal = ({ order, isOpen, onClose, onSave, ordersWithItems }) => {
 
             <div className="form-row">
               <div className="form-group">
+                <label>Update Payment Method</label>
+                <select
+                  value={editPaymentMethod}
+                  onChange={(e) => setEditPaymentMethod(e.target.value)}
+                  className="form-input"
+                  disabled={!canUpdateOrder}
+                >
+                  <option value="Cash">Cash</option>
+                  <option value="GCash">GCash</option>
+                  <option value="Card">Card</option>
+                </select>
+              </div>
+              <div className="form-group">
                 <label>Update Payment Status</label>
                 <select
                   value={editPaymentStatus}
@@ -106,9 +128,8 @@ const OrderModal = ({ order, isOpen, onClose, onSave, ordersWithItems }) => {
                   className="form-input"
                   disabled={!canUpdateOrder}
                 >
-                  <option value="Cash">Cash</option>
-                  <option value="GCash">GCash</option>
-                  <option value="Card">Card</option>
+                  <option value="Unpaid">Unpaid</option>
+                  <option value="Paid">Paid</option>
                 </select>
               </div>
               <div className="form-group">
@@ -233,8 +254,11 @@ const OrdersPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(5);
 
-  // Fetch orders and their items from API
+  // Fetch orders and their items from API (guard against StrictMode double-invoke)
+  const didInit = useRef(false);
   useEffect(() => {
+    if (didInit.current) return;
+    didInit.current = true;
     fetchOrdersWithItems();
   }, []);
 
@@ -243,16 +267,48 @@ const OrdersPage = () => {
       setLoading(true);
       setError(null);
 
-      // Fetch orders first
-      const ordersData = await salesAPI.getSales();
+      // Retry wrapper for initial sales fetch (handles 429s)
+      const getSalesWithRetry = async (attempt = 0) => {
+        try {
+          return await salesAPI.getSales();
+        } catch (e) {
+          const is429 = (e.message || '').toLowerCase().includes('too many requests');
+          if (is429 && attempt < 3) {
+            const delay = (attempt + 1) * 600; // 600ms, 1200ms, 1800ms
+            await new Promise(r => setTimeout(r, delay));
+            return getSalesWithRetry(attempt + 1);
+          }
+          throw e;
+        }
+      };
+
+      // Fetch orders first (with retry)
+      const ordersData = await getSalesWithRetry();
       setOrders(ordersData);
 
-      // Fetch sale items for each order
+      // Helper: retry on 429 with small backoff
+      const fetchItemsWithRetry = async (saleId, attempt = 0) => {
+        try {
+          return await salesAPI.getSaleItems(saleId);
+        } catch (e) {
+          const is429 = (e.message || '').toLowerCase().includes('too many requests');
+          if (is429 && attempt < 3) {
+            const delay = (attempt + 1) * 500; // 500ms, 1000ms, 1500ms
+            await new Promise(r => setTimeout(r, delay));
+            return fetchItemsWithRetry(saleId, attempt + 1);
+          }
+          throw e;
+        }
+      };
+
+      // Fetch sale items for each order (staggered to avoid rate limiting)
       const ordersWithItemsData = {};
       for (const order of ordersData) {
         try {
-          const items = await salesAPI.getSaleItems(order.id);
+          const items = await fetchItemsWithRetry(order.id);
           ordersWithItemsData[order.id] = items || [];
+          // small delay between requests
+          await new Promise(r => setTimeout(r, 120));
         } catch (error) {
           console.error(`Error fetching items for order ${order.id}:`, error);
           ordersWithItemsData[order.id] = [];
@@ -305,22 +361,28 @@ const OrdersPage = () => {
   };
 
   // Helper function to map payment method to CSS class names
-  const getPaymentStatusClassName = (payment) => {
-    const paymentMap = {
+  const getPaymentMethodClassName = (method) => {
+    const methodMap = {
       'Cash': 'cash',
       'GCash': 'gcash',
-     
-      'Cash on Delivery': 'cash-on-delivery',
-      
+      'Card': 'card',
     };
-    return paymentMap[payment] || 'unknown-payment';
+    return methodMap[method] || 'unknown-payment';
+  };
+
+  const getPaymentStatusClassName = (status) => {
+    const statusMap = {
+      'Paid': 'paid',
+      'Unpaid': 'unpaid',
+    };
+    return statusMap[status] || 'unknown-status';
   };
 
   // Order status options
   const orderStatuses = ['All Order Status', 'Pending', 'Processing', 'Completed', 'Cancelled'];
 
   // Payment status options
-  const paymentStatuses = ['All Payment Status', 'Cash', 'GCash', 'Card'];
+  const paymentStatuses = ['All Payment Status', 'Paid', 'Unpaid'];
 
   // Filter orders based on search and status
   const filteredOrders = (orders || []).filter(order => {
@@ -328,7 +390,7 @@ const OrdersPage = () => {
                          order.sale_number.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesOrderStatus = selectedOrderStatus === 'All Order Status' || order.status === selectedOrderStatus;
-    const matchesPaymentStatus = selectedPaymentStatus === 'All Payment Status' || order.payment === selectedPaymentStatus;
+    const matchesPaymentStatus = selectedPaymentStatus === 'All Payment Status' || (order.payment_status || 'Unpaid') === selectedPaymentStatus;
 
     return matchesSearch && matchesOrderStatus && matchesPaymentStatus;
   });
@@ -346,9 +408,9 @@ const OrdersPage = () => {
     return {
       totalOrders: ordersList.length,
       pendingOrders: ordersList.filter(order => order.status === 'Processing').length,
-      paidOrders: ordersList.filter(order => order.payment === 'Cash' || order.payment === 'GCash' || order.payment === 'Card').length,
+      paidOrders: ordersList.filter(order => (order.payment_status || 'Unpaid') === 'Paid').length,
       totalRevenue: ordersList
-        .filter(order => order.payment !== 'Cancelled')
+        .filter(order => order.status !== 'Cancelled')
         .reduce((sum, order) => sum + parseFloat(order.total || 0), 0)
     };
   }, [orders]);
@@ -382,17 +444,19 @@ const OrdersPage = () => {
   };
 
   // Handle save changes from modal (update order status)
-  const handleSaveChanges = async (orderId, newPaymentStatus, newOrderStatus) => {
+  const handleSaveChanges = async (orderId, newPaymentMethod, newPaymentStatus, newOrderStatus) => {
     try {
       console.log('🔄 Starting order update:', {
         orderId,
+        newPaymentMethod,
         newPaymentStatus,
         newOrderStatus,
         currentOrderStatus: selectedOrder?.status
       });
 
       const updateData = {
-        payment: newPaymentStatus,
+        payment: newPaymentMethod,
+        payment_status: newPaymentStatus,
         status: newOrderStatus
       };
 
@@ -438,7 +502,7 @@ const OrdersPage = () => {
             {error && (
               <div className="error-banner">
                 <p>{error}</p>
-                <button onClick={fetchOrders} className="retry-btn">
+                <button onClick={fetchOrdersWithItems} className="retry-btn">
                   Retry
                 </button>
               </div>
@@ -530,6 +594,7 @@ const OrdersPage = () => {
                         <th>Customer Name</th>
                         <th>Order Date</th>
                         <th>Items</th>
+                        <th>Payment Method</th>
                         <th>Payment Status</th>
                         <th>Order Status</th>
                         <th>Actions</th>
@@ -553,8 +618,13 @@ const OrdersPage = () => {
                             </div>
                           </td>
                           <td>
-                            <span className={`payment-status-badge ${getPaymentStatusClassName(order.payment)}`}>
+                            <span className={`payment-status-badge ${getPaymentMethodClassName(order.payment)}`}>
                               {order.payment || 'Unknown'}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`payment-status-badge ${getPaymentStatusClassName(order.payment_status || 'Unpaid')}`}>
+                              {order.payment_status || 'Unpaid'}
                             </span>
                           </td>
                           <td>

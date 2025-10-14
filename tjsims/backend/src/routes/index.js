@@ -2,6 +2,7 @@ import express from 'express';
 import productRoutes from './api/products.js';
 import inventoryRoutes from './api/inventory.js';
 import salesRoutes from './api/sales.js';
+import reportsRoutes from './api/reports.js';
 
 const router = express.Router();
 
@@ -9,6 +10,7 @@ const router = express.Router();
 router.use('/products', productRoutes);
 router.use('/inventory', inventoryRoutes);
 router.use('/sales', salesRoutes);
+router.use('/reports', reportsRoutes);
 
 // Health check
 router.get('/health', (req, res) => {

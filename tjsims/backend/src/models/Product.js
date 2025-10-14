@@ -130,10 +130,20 @@ export class Product {
 
   static async delete(id) {
     const pool = getPool();
-    const [result] = await pool.execute(
-      'DELETE FROM products WHERE id = ?',
-      [id]
-    );
+    // Get product_id for the given internal id
+    const [prodRows] = await pool.execute('SELECT product_id FROM products WHERE id = ?', [id]);
+    if (prodRows.length === 0) return false;
+    const productId = prodRows[0].product_id;
+
+    // Check if product is referenced in sale_items (cannot delete if referenced)
+    const [refRows] = await pool.execute('SELECT COUNT(*) as cnt FROM sale_items WHERE product_id = ?', [productId]);
+    if ((refRows[0]?.cnt || 0) > 0) {
+      const err = new Error('PRODUCT_IN_USE');
+      err.code = 'PRODUCT_IN_USE';
+      throw err;
+    }
+
+    const [result] = await pool.execute('DELETE FROM products WHERE id = ?', [id]);
     return result.affectedRows > 0;
   }
 

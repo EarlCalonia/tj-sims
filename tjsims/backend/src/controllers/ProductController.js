@@ -142,6 +142,16 @@ export class ProductController {
       });
     } catch (error) {
       console.error('Error deleting product:', error);
+      
+      // Handle specific error for product in use
+      if (error.code === 'PRODUCT_IN_USE') {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot delete product. This product is referenced in existing sales records.',
+          error: error.message
+        });
+      }
+      
       res.status(500).json({
         success: false,
         message: 'Failed to delete product',

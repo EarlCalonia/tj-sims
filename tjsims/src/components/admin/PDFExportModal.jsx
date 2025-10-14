@@ -115,7 +115,7 @@ const PDFExportModal = ({ isOpen, onClose, onExport, reportType }) => {
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         .modal-overlay {
           position: fixed;
           top: 0;
