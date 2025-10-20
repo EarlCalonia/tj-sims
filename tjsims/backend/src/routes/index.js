@@ -4,6 +4,9 @@ import inventoryRoutes from './api/inventory.js';
 import salesRoutes from './api/sales.js';
 import reportsRoutes from './api/reports.js';
 import dashboardRoutes from './api/dashboard.js';
+import authRoutes from './api/auth.js';
+import usersRoutes from './api/users.js';
+import settingsRoutes from './api/settings.js';
 
 const router = express.Router();
 
@@ -13,6 +16,9 @@ router.use('/inventory', inventoryRoutes);
 router.use('/sales', salesRoutes);
 router.use('/reports', reportsRoutes);
 router.use('/dashboard', dashboardRoutes);
+router.use('/auth', authRoutes);
+router.use('/users', usersRoutes);
+router.use('/settings', settingsRoutes);
 
 // Health check
 router.get('/health', (req, res) => {

@@ -171,7 +171,7 @@ const OrderModal = ({ order, isOpen, onClose, onSave, ordersWithItems }) => {
                               <span className="product-name-text">{item.product_name || 'Unknown Product'}</span>
                             </td>
                             <td className="item-price">
-                              <span className="price-text">₱{item.price ? item.price.toLocaleString() : '0'}</span>
+                              <span className="price-text">₱{Number(item.price || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </td>
                           </tr>
                         ))}
@@ -180,7 +180,7 @@ const OrderModal = ({ order, isOpen, onClose, onSave, ordersWithItems }) => {
                             <strong>Total</strong>
                           </td>
                           <td className="total-amount-cell">
-                            <strong className="final-total">₱{order.total ? order.total.toLocaleString() : '0'}</strong>
+                            <strong className="final-total">₱{Number(order.total || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
                           </td>
                         </tr>
                       </tbody>
@@ -574,7 +574,7 @@ const OrdersPage = () => {
               <div className="orders-stat-card">
                 <div className="stat-info">
                   <h3>Total Revenue</h3>
-                  <p className="stat-number total-revenue">₱{stats.totalRevenue.toLocaleString()}</p>
+                  <p className="stat-number total-revenue">₱{Number(stats.totalRevenue || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                 </div>
               </div>
             </div>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { authAPI } from '../utils/api';
 import '../styles/App.css';
 
 const LoginForm = () => {
@@ -8,33 +9,32 @@ const LoginForm = () => {
   const [password, setPassword] = React.useState('');
   const [error, setError] = React.useState('');
 
-  const handleSubmit = (e) => {
+  React.useEffect(() => {
+    if (localStorage.getItem('isAuthenticated') !== 'true') {
+      localStorage.setItem('isAuthenticated', 'false');
+    }
+  }, []);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Simple validation
+
     if (!email.trim() || !password.trim()) {
       setError('Please enter both email and password');
       return;
     }
 
-    // Check for admin credentials
-    if (email === 'admin@gmail.com' && password === 'admin') {
-      // Set authentication state
+    try {
+      setError('');
+      const result = await authAPI.login(email, password);
+      const user = result.data;
       localStorage.setItem('isAuthenticated', 'true');
-      localStorage.setItem('userRole', 'admin');
-      // Redirect to admin dashboard
-      navigate('/admin/dashboard');
-    } 
-    // Check for driver credentials
-    else if (email === 'tjcdriver@gmail.com' && password === 'driver123') {
-      // Set authentication state
-      localStorage.setItem('isAuthenticated', 'true');
-      localStorage.setItem('userRole', 'driver');
-      // Redirect to delivery portal
-      navigate('/admin/delivery');
-    } 
-    else {
-      setError('Invalid credentials. Please try again.');
+      localStorage.setItem('userRole', user.role);
+      localStorage.setItem('userId', user.id);
+      localStorage.setItem('username', user.username);
+      if (user.role === 'driver') navigate('/admin/delivery');
+      else navigate('/admin/dashboard');
+    } catch (err) {
+      setError(err.message || 'Login failed');
     }
   };
 

@@ -249,8 +249,8 @@ const ReportsPage = () => {
                           <td>{item.customerName}</td>
                           <td>{item.productName}</td>
                           <td>{item.quantity}</td>
-                          <td className="amount-cell">₱{item.unitPrice.toLocaleString()}</td>
-                          <td className="amount-cell">₱{item.totalPrice.toLocaleString()}</td>
+                          <td className="amount-cell">₱{Number(item.unitPrice || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                          <td className="amount-cell">₱{Number(item.totalPrice || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                           <td>{item.orderDate}</td>
                         </tr>
                       ))}

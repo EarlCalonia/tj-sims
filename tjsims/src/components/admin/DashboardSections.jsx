@@ -174,6 +174,7 @@ const InventoryAlerts = () => {
 const SalesReportPreview = () => {
   const navigate = useNavigate();
   const [dashboardStats, setDashboardStats] = useState(null);
+  const [dailySales, setDailySales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -186,14 +187,15 @@ const SalesReportPreview = () => {
       setLoading(true);
       setError(null);
 
-      // Fetch dashboard stats only (sales-trend endpoint doesn't exist yet)
-      const statsResult = await dashboardAPI.getDashboardStats();
+      // Fetch dashboard stats and daily sales
+      const [statsResult, dailyResult] = await Promise.all([
+        dashboardAPI.getDashboardStats(),
+        dashboardAPI.getDailySales()
+      ]);
 
-      if (statsResult.success) {
-        setDashboardStats(statsResult.data);
-      } else {
-        setError('Failed to fetch dashboard statistics');
-      }
+      if (statsResult.success) setDashboardStats(statsResult.data);
+      if (dailyResult.success) setDailySales(dailyResult.data || []);
+      if (!statsResult.success && !dailyResult.success) setError('Failed to fetch dashboard data');
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       setError('Error loading dashboard data');
@@ -202,14 +204,14 @@ const SalesReportPreview = () => {
     }
   };
 
-  // Process API data for trend chart (using sample data until backend provides trend data)
   const getTrendChartData = () => {
-    // Sample data - replace with real API data when backend endpoint is available
+    const labels = dailySales.map(d => new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+    const data = dailySales.map(d => parseFloat(d.total || 0));
     return {
-      labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'],
+      labels,
       datasets: [{
         label: 'Sales Trend',
-        data: [45000, 52000, 48000, 61000, 58000, 67000, 73000],
+        data,
         borderColor: 'rgba(16, 185, 129, 1)',
         backgroundColor: 'rgba(16, 185, 129, 0.1)',
         borderWidth: 3,
@@ -309,24 +311,24 @@ const SalesReportPreview = () => {
 
 const DailySales = () => {
   const navigate = useNavigate();
-  const [dashboardStats, setDashboardStats] = useState(null);
+  const [dailySales, setDailySales] = useState([]);
+  const [period, setPeriod] = useState('week'); // 'week' | 'month' | 'year'
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchDailySales();
-  }, []);
+  }, [period]);
 
   const fetchDailySales = async () => {
     try {
       setLoading(true);
       setError(null);
-      // Use getDashboardStats instead of non-existent getDailySales
-      const result = await dashboardAPI.getDashboardStats();
+      const result = await dashboardAPI.getDailySales(period);
       if (result.success) {
-        setDashboardStats(result.data);
+        setDailySales(result.data || []);
       } else {
-        setError('Failed to fetch dashboard data');
+        setError('Failed to fetch daily sales');
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -336,14 +338,19 @@ const DailySales = () => {
     }
   };
 
-  // Generate sample daily sales data for the chart (can be replaced with real API data later)
   const getChartData = () => {
-    // Sample data - replace with real API data when backend endpoint is available
+    const labels = dailySales.map(d => {
+      const dt = new Date(d.date);
+      if (period === 'year') return dt.toLocaleDateString('en-US', { month: 'short' });
+      if (period === 'month') return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return dt.toLocaleDateString('en-US', { weekday: 'short' });
+    });
+    const data = dailySales.map(d => parseFloat(d.total || 0));
     return {
-      labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+      labels,
       datasets: [{
         label: 'Daily Sales (₱)',
-        data: [12500, 15200, 13800, 18900, 22100, 25600, 18200],
+        data,
         backgroundColor: 'rgba(59, 130, 246, 0.8)',
         borderColor: 'rgba(59, 130, 246, 1)',
         borderWidth: 1,
@@ -390,11 +397,11 @@ const DailySales = () => {
   return (
     <div className="dashboard-card">
       <div className="card-header">
-        <h3>Daily Sales (Last 7 days)</h3>
+        <h3>Sales ({period === 'week' ? 'Last 7 days' : period === 'month' ? 'Last 30 days' : 'Last 12 months'})</h3>
         <div className="time-filter">
-          <button className="active">Week</button>
-          <button>Month</button>
-          <button>Year</button>
+          <button className={period === 'week' ? 'active' : ''} onClick={() => setPeriod('week')}>Week</button>
+          <button className={period === 'month' ? 'active' : ''} onClick={() => setPeriod('month')}>Month</button>
+          <button className={period === 'year' ? 'active' : ''} onClick={() => setPeriod('year')}>Year</button>
         </div>
       </div>
       <div className="daily-sales">
@@ -414,11 +421,11 @@ const DailySales = () => {
         <div className="sales-stats">
           <div className="stat">
             <span>Total Sales</span>
-            <strong>₱ {dashboardStats?.totalSales?.toLocaleString() || '250,000.00'}</strong>
+            <strong>₱ {dailySales.reduce((sum, d) => sum + (parseFloat(d.total || 0)), 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
           </div>
           <div className="stat">
             <span>Orders</span>
-            <strong>{dashboardStats?.totalOrders || 89}</strong>
+            <strong>{dailySales.reduce((sum, d) => sum + (parseInt(d.orders || 0)), 0)}</strong>
           </div>
         </div>
       </div>

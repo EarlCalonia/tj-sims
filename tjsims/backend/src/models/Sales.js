@@ -23,9 +23,9 @@ export class Sales {
     try {
       // Insert sale record
       const [saleResult] = await connection.execute(
-        `INSERT INTO sales (sale_number, customer_name, contact, payment, payment_status, total, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-        [saleNumber, customer_name, contact, payment, payment_status || 'Unpaid', total]
+        `INSERT INTO sales (sale_number, customer_name, contact, payment, payment_status, status, address, total, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+        [saleNumber, customer_name, contact, payment, payment_status || 'Unpaid', salesData.status || 'Pending', salesData.address || null, total]
       );
 
       const saleId = saleResult.insertId;
@@ -118,7 +118,7 @@ export class Sales {
              SUM(si.subtotal) as calculated_total
       FROM sales s
       LEFT JOIN sale_items si ON s.id = si.sale_id
-      WHERE 1=1
+      WHERE 1=1 AND (s.status IS NULL OR s.status <> 'Cancelled')
     `;
     let params = [];
 
@@ -180,6 +180,7 @@ export class Sales {
       contact,
       payment,
       payment_status,
+      address,
       total,
       status
     } = salesData;
@@ -202,6 +203,10 @@ export class Sales {
     if (payment_status !== undefined) {
       updates.push('payment_status = ?');
       params.push(payment_status);
+    }
+    if (address !== undefined) {
+      updates.push('address = ?');
+      params.push(address);
     }
     if (total !== undefined) {
       updates.push('total = ?');

@@ -8,14 +8,14 @@ export class DashboardController {
     try {
       const pool = getPool();
 
-      // Today's sales
+      // Today's sales (exclude cancelled)
       const [todaySales] = await pool.execute(
-        `SELECT COALESCE(SUM(total), 0) as total FROM sales WHERE DATE(created_at) = CURDATE()`
+        `SELECT COALESCE(SUM(total), 0) as total FROM sales WHERE DATE(created_at) = CURDATE() AND (status IS NULL OR status <> 'Cancelled')`
       );
 
-      // This week's sales
+      // This week's sales (exclude cancelled)
       const [weekSales] = await pool.execute(
-        `SELECT COALESCE(SUM(total), 0) as total FROM sales WHERE YEARWEEK(created_at) = YEARWEEK(NOW())`
+        `SELECT COALESCE(SUM(total), 0) as total FROM sales WHERE YEARWEEK(created_at) = YEARWEEK(NOW()) AND (status IS NULL OR status <> 'Cancelled')`
       );
 
       // Low stock items count - join products and inventory tables
@@ -26,10 +26,9 @@ export class DashboardController {
          WHERE i.stock <= i.reorder_point AND i.stock > 0`
       );
 
-      // Pending orders count - since sales table doesn't have status, we'll count all sales for now
-      // In a real scenario, you might want to add a status column to sales table
+      // Pending orders count (exclude completed/cancelled)
       const [pendingOrders] = await pool.execute(
-        `SELECT COUNT(*) as count FROM sales`
+        `SELECT COUNT(*) as count FROM sales WHERE (status IS NULL OR status NOT IN ('Completed', 'Cancelled'))`
       );
 
       res.json({
@@ -61,6 +60,7 @@ export class DashboardController {
                 GROUP_CONCAT(CONCAT(si.product_name, ' (', si.quantity, ')') SEPARATOR ', ') as products
          FROM sales s
          LEFT JOIN sale_items si ON s.id = si.sale_id
+         WHERE (s.status IS NULL OR s.status <> 'Cancelled')
          GROUP BY s.id
          ORDER BY s.created_at DESC
          LIMIT 5`
@@ -111,15 +111,48 @@ export class DashboardController {
     try {
       const pool = getPool();
 
-      const [dailySales] = await pool.execute(
-        `SELECT DATE(created_at) as date,
-                COALESCE(SUM(total), 0) as total,
-                COUNT(*) as orders
-         FROM sales
-         WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-         GROUP BY DATE(created_at)
-         ORDER BY date ASC`
-      );
+      const { period = 'week' } = req.query;
+
+      let query = '';
+      if (period === 'year') {
+        // Aggregate by month for the last 12 months
+        query = `
+          SELECT DATE(DATE_FORMAT(created_at, '%Y-%m-01')) as date,
+                 COALESCE(SUM(total), 0) as total,
+                 COUNT(*) as orders
+          FROM sales
+          WHERE created_at >= DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 11 MONTH)
+            AND (status IS NULL OR status <> 'Cancelled')
+          GROUP BY YEAR(created_at), MONTH(created_at)
+          ORDER BY date ASC
+        `;
+      } else if (period === 'month') {
+        // Aggregate by day for last 30 days
+        query = `
+          SELECT DATE(created_at) as date,
+                 COALESCE(SUM(total), 0) as total,
+                 COUNT(*) as orders
+          FROM sales
+          WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+            AND (status IS NULL OR status <> 'Cancelled')
+          GROUP BY DATE(created_at)
+          ORDER BY date ASC
+        `;
+      } else {
+        // Default week: last 7 days by day
+        query = `
+          SELECT DATE(created_at) as date,
+                 COALESCE(SUM(total), 0) as total,
+                 COUNT(*) as orders
+          FROM sales
+          WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+            AND (status IS NULL OR status <> 'Cancelled')
+          GROUP BY DATE(created_at)
+          ORDER BY date ASC
+        `;
+      }
+
+      const [dailySales] = await pool.execute(query);
 
       res.json({
         success: true,

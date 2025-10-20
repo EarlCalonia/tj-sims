@@ -10,18 +10,24 @@ import InventoryPage from './pages/admin/InventoryPage';
 import OrdersPage from './pages/admin/OrdersPage';
 import ReportsPage from './pages/admin/ReportsPage';
 import ProductPage from './pages/admin/ProductPage';
+import SettingsPage from './pages/admin/SettingsPage';
 import DeliveryPortal from './pages/admin/DeliveryPortal';
 
-// A wrapper component to handle authentication
-const PrivateRoute = ({ children }) => {
+// A wrapper component to handle authentication and optional role restriction
+const PrivateRoute = ({ children, allowedRoles }) => {
   const location = useLocation();
   const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+  const role = localStorage.getItem('userRole');
   
-  return isAuthenticated ? (
-    children
-  ) : (
-    <Navigate to="/login" state={{ from: location }} replace />
-  );
+  if (!isAuthenticated) {
+    return <Navigate to="/admin/login" state={{ from: location }} replace />;
+  }
+
+  if (allowedRoles && !allowedRoles.includes(role)) {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
+
+  return children;
 };
 
 const App = () => {
@@ -40,7 +46,7 @@ const App = () => {
         <Route 
           path="/admin/dashboard" 
           element={
-            <PrivateRoute>
+            <PrivateRoute allowedRoles={['admin']}>
               <DashboardPage />
             </PrivateRoute>
           } 
@@ -48,7 +54,7 @@ const App = () => {
         <Route 
           path="/admin/sales" 
           element={
-            <PrivateRoute>
+            <PrivateRoute allowedRoles={['admin']}>
               <SalesPage />
             </PrivateRoute>
           } 
@@ -56,7 +62,7 @@ const App = () => {
         <Route 
           path="/admin/orders" 
           element={
-            <PrivateRoute>
+            <PrivateRoute allowedRoles={['admin']}>
               <OrdersPage />
             </PrivateRoute>
           } 
@@ -64,7 +70,7 @@ const App = () => {
         <Route 
           path="/admin/inventory" 
           element={
-            <PrivateRoute>
+            <PrivateRoute allowedRoles={['admin']}>
               <InventoryPage />
             </PrivateRoute>
           } 
@@ -72,7 +78,7 @@ const App = () => {
          <Route 
           path="/admin/reports" 
           element={
-            <PrivateRoute>
+            <PrivateRoute allowedRoles={['admin']}>
               <ReportsPage />
             </PrivateRoute>
           } 
@@ -80,15 +86,23 @@ const App = () => {
           <Route 
           path="/admin/products" 
           element={
-            <PrivateRoute>
+            <PrivateRoute allowedRoles={['admin']}>
               <ProductPage />
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="/admin/settings" 
+          element={
+            <PrivateRoute allowedRoles={['admin']}>
+              <SettingsPage />
             </PrivateRoute>
           } 
         />
         <Route 
           path="/admin/delivery" 
           element={
-            <PrivateRoute>
+            <PrivateRoute allowedRoles={['admin','driver']}>
               <DeliveryPortal />
             </PrivateRoute>
           } 

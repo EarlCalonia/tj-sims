@@ -12,7 +12,9 @@ const SalesPage = () => {
   const [paymentOption, setPaymentOption] = useState('Cash');
   const [shippingOption, setShippingOption] = useState('In-Store Pickup');
   const [orderStatus, setOrderStatus] = useState('Processing');
-  const [paymentStatus, setPaymentStatus] = useState('Pending');
+  const [paymentStatus, setPaymentStatus] = useState('Unpaid');
+  const [address, setAddress] = useState('Manila');
+  const [addressDetails, setAddressDetails] = useState('');
 
   // New state for API integration
   const [products, setProducts] = useState([]);
@@ -256,6 +258,8 @@ const SalesPage = () => {
   const clearCustomerInfo = () => {
     setCustomerName('');
     setContactNumber('');
+    setAddress('Manila');
+    setAddressDetails('');
   };
 
   const confirmSale = async () => {
@@ -275,6 +279,9 @@ const SalesPage = () => {
         customer_name: customerName,
         contact: contactNumber,
         payment: paymentOption,
+        payment_status: paymentStatus,
+        status: orderStatus,
+        address: addressDetails ? `${addressDetails}, ${address}` : address,
         total: getCartTotal(),
         items: cart.map(item => ({
           product_id: item.product_id,
@@ -488,6 +495,28 @@ const SalesPage = () => {
                       placeholder="Enter contact number"
                       className="info-input"
                     />
+                  </div>
+                  <div className="info-row">
+                    <label>Address Details:</label>
+                    <input
+                      type="text"
+                      value={addressDetails}
+                      onChange={(e) => setAddressDetails(e.target.value)}
+                      placeholder="Street/Barangay/City details"
+                      className="info-input"
+                    />
+                  </div>
+                  <div className="info-row">
+                    <label>Address:</label>
+                    <select
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      className="info-input"
+                    >
+                      <option value="Manila">Manila</option>
+                      <option value="Pampanga">Pampanga</option>
+                      <option value="Bulacan">Bulacan</option>
+                    </select>
                   </div>
                   <div className="info-row">
                     <button onClick={clearCustomerInfo} className="clear-info-btn">
