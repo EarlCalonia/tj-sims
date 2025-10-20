@@ -1,42 +1,71 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { dashboardAPI } from '../../utils/api';
 
-const StatCard = ({ title, value, color }) => (
+const StatCard = ({ title, value, color, loading }) => (
   <div className="stat-card" style={{ borderLeft: `4px solid ${color}` }}>
     <div className="stat-info">
       <p className="stat-title">{title}</p>
-      <h3 className="stat-value" style={{ color }}>{value}</h3>
+      <h3 className="stat-value" style={{ color }}>
+        {loading ? 'Loading...' : value}
+      </h3>
     </div>
   </div>
 );
 
 const DashboardStats = () => {
-  const stats = [
+  const [stats, setStats] = useState({
+    todaySales: 0,
+    weekSales: 0,
+    lowStockItems: 0,
+    pendingOrders: 0
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchDashboardStats();
+  }, []);
+
+  const fetchDashboardStats = async () => {
+    try {
+      setLoading(true);
+      const result = await dashboardAPI.getDashboardStats();
+      if (result.success) {
+        setStats(result.data);
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const statsConfig = [
     { 
       title: "Today's Sales", 
-      value: '₱ 50,000.00', 
-      color: '#28a745' // Green for Today's Sales
+      value: `₱ ${stats.todaySales.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 
+      color: '#28a745'
     },
     { 
       title: 'Total Sales This Week', 
-      value: '₱ 350,000.00', 
-      color: '#0571d3' // Blue for Total Sales This Week
+      value: `₱ ${stats.weekSales.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 
+      color: '#0571d3'
     },
     { 
       title: 'Low Stock Items', 
-      value: '24', 
-      color: '#dc3545' // Red for Low Stock Items
+      value: stats.lowStockItems.toString(), 
+      color: '#dc3545'
     },
     { 
       title: 'Pending Orders', 
-      value: '18', 
-      color: '#6f42c1' // Purple for Pending Orders
+      value: stats.pendingOrders.toString(), 
+      color: '#6f42c1'
     },
   ];
 
   return (
     <div className="dashboard-stats">
-      {stats.map((stat, index) => (
-        <StatCard key={index} {...stat} />
+      {statsConfig.map((stat, index) => (
+        <StatCard key={index} {...stat} loading={loading} />
       ))}
     </div>
   );

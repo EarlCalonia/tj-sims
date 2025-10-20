@@ -306,3 +306,30 @@ export const reportsAPI = {
     return handleResponse(response);
   },
 };
+
+// Dashboard API functions
+export const dashboardAPI = {
+  // Get dashboard statistics
+  getDashboardStats: async () => {
+    const response = await fetch(`${API_BASE_URL}/dashboard/stats`, {
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  },
+
+  // Get recent sales transactions
+  getRecentSales: async () => {
+    const response = await fetch(`${API_BASE_URL}/dashboard/recent-sales`, {
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  },
+
+  // Get low stock items
+  getLowStockItems: async () => {
+    const response = await fetch(`${API_BASE_URL}/dashboard/low-stock`, {
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  },
+};
