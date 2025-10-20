@@ -12,6 +12,7 @@ const Navbar = () => {
   const dropdownRef = useRef(null);
   const username = localStorage.getItem('username') || 'Admin';
   const role = localStorage.getItem('userRole') || 'Administrator';
+  const avatar = localStorage.getItem('avatar') || '';
   
   useEffect(() => {
     const onClickOutside = (e) => {
@@ -36,6 +37,7 @@ const Navbar = () => {
     localStorage.removeItem('userRole');
     localStorage.removeItem('userId');
     localStorage.removeItem('username');
+    localStorage.removeItem('avatar');
     navigate('/admin/login');
   };
 
@@ -59,7 +61,11 @@ const Navbar = () => {
         <div className="navbar-profile" ref={dropdownRef}>
           <button className="profile-btn" onClick={() => setOpen(!open)}>
             <div className="profile-icon">
-              <BiUserCircle size={24} />
+              {(avatar && (role === 'admin' || role === 'staff')) ? (
+                <img src={"http://localhost:5000"+avatar} alt="avatar" style={{ width: 42, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
+              ) : (
+                <BiUserCircle size={24} />
+              )}
             </div>
             <div className="profile-info">
               <span className="admin-name">{username}</span>

@@ -45,19 +45,21 @@ export const usersAPI = {
     return handleResponse(response);
   },
   create: async (user) => {
+    const isForm = typeof FormData !== 'undefined' && user instanceof FormData;
     const response = await fetch(`${API_BASE_URL}/users`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(user),
+      headers: isForm ? undefined : { 'Content-Type': 'application/json' },
+      body: isForm ? user : JSON.stringify(user),
       credentials: 'include'
     });
     return handleResponse(response);
   },
   update: async (id, user) => {
+    const isForm = typeof FormData !== 'undefined' && user instanceof FormData;
     const response = await fetch(`${API_BASE_URL}/users/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(user),
+      headers: isForm ? undefined : { 'Content-Type': 'application/json' },
+      body: isForm ? user : JSON.stringify(user),
       credentials: 'include'
     });
     return handleResponse(response);

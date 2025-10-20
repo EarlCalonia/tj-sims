@@ -31,6 +31,11 @@ const LoginForm = () => {
       localStorage.setItem('userRole', user.role);
       localStorage.setItem('userId', user.id);
       localStorage.setItem('username', user.username);
+      if (user.avatar) {
+        localStorage.setItem('avatar', user.avatar);
+      } else {
+        localStorage.removeItem('avatar');
+      }
       if (user.role === 'driver') navigate('/admin/delivery');
       else navigate('/admin/dashboard');
     } catch (err) {

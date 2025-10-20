@@ -5,7 +5,7 @@ export class UsersController {
   static async list(req, res) {
     try {
       const pool = getPool();
-      const [rows] = await pool.execute('SELECT id, username, email, role, status, NULL as avatar FROM users ORDER BY created_at DESC');
+      const [rows] = await pool.execute('SELECT id, username, email, role, status, avatar FROM users ORDER BY created_at DESC');
       res.json({ success: true, data: rows });
     } catch (err) {
       console.error('List users error:', err);
@@ -21,9 +21,10 @@ export class UsersController {
       }
       const pool = getPool();
       const hash = await bcrypt.hash(password, 10);
+      const avatarPath = req.file ? `/${req.file.path.replace(/\\/g, '/')}`.replace('src/', '') : null;
       await pool.execute(
-        'INSERT INTO users (username, email, password_hash, role, status) VALUES (?, ?, ?, ?, ?)',
-        [username, email, hash, role, status]
+        'INSERT INTO users (username, email, password_hash, role, status, avatar) VALUES (?, ?, ?, ?, ?, ?)',
+        [username, email, hash, role, status, avatarPath]
       );
       res.status(201).json({ success: true, message: 'User created' });
     } catch (err) {
@@ -42,6 +43,7 @@ export class UsersController {
       if (username !== undefined) { updates.push('username = ?'); params.push(username); }
       if (role !== undefined) { updates.push('role = ?'); params.push(role); }
       if (status !== undefined) { updates.push('status = ?'); params.push(status); }
+      if (req.file) { updates.push('avatar = ?'); params.push(`/${req.file.path.replace(/\\/g, '/')}`.replace('src/', '')); }
       if (updates.length === 0) return res.status(400).json({ success: false, message: 'No fields to update' });
       params.push(id);
       await pool.execute(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, params);

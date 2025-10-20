@@ -21,8 +21,10 @@ const SettingsPage = () => {
   // Users
   const [users, setUsers] = useState([]);
   const [showAddUser, setShowAddUser] = useState(false);
-  const [newUser, setNewUser] = useState({ username: '', email: '', role: 'staff', status: 'Active', password: '' });
+  const [newUser, setNewUser] = useState({ username: '', email: '', role: 'staff', status: 'Active', password: '', avatarFile: null });
   const [savingUser, setSavingUser] = useState(false);
+  const [showEditUser, setShowEditUser] = useState(false);
+  const [editUser, setEditUser] = useState({ id: null, username: '', role: 'staff', status: 'Active', avatarFile: null });
 
   // Password management
   const [pwd, setPwd] = useState({ current: '', next: '', confirm: '' });
@@ -102,12 +104,43 @@ const SettingsPage = () => {
         alert('Please complete user fields');
         return;
       }
-      await usersAPI.create(newUser);
+      const fd = new FormData();
+      fd.append('username', newUser.username);
+      fd.append('email', newUser.email);
+      fd.append('password', newUser.password);
+      fd.append('role', newUser.role);
+      fd.append('status', newUser.status);
+      if (newUser.avatarFile) fd.append('avatar', newUser.avatarFile);
+      await usersAPI.create(fd);
       setShowAddUser(false);
-      setNewUser({ username: '', email: '', role: 'staff', status: 'Active', password: '' });
+      setNewUser({ username: '', email: '', role: 'staff', status: 'Active', password: '', avatarFile: null });
       await loadUsers();
     } catch (e) {
       alert(e.message || 'Failed to add user');
+    } finally {
+      setSavingUser(false);
+    }
+  };
+
+  const openEdit = (u) => {
+    setEditUser({ id: u.id, username: u.username || '', role: u.role || 'staff', status: u.status || 'Active', avatarFile: null });
+    setShowEditUser(true);
+  };
+
+  const handleUpdateUser = async () => {
+    try {
+      setSavingUser(true);
+      if (!editUser.id) return;
+      const fd = new FormData();
+      fd.append('username', editUser.username);
+      fd.append('role', editUser.role);
+      fd.append('status', editUser.status);
+      if (editUser.avatarFile) fd.append('avatar', editUser.avatarFile);
+      await usersAPI.update(editUser.id, fd);
+      setShowEditUser(false);
+      await loadUsers();
+    } catch (e) {
+      alert(e.message || 'Failed to update user');
     } finally {
       setSavingUser(false);
     }
@@ -189,7 +222,7 @@ const SettingsPage = () => {
                       <td><span className={`badge role-${(u.role||'').toLowerCase()}`}>{u.role}</span></td>
                       <td><span className={`badge status-${(u.status||'').toLowerCase()}`}>{u.status}</span></td>
                       <td>
-                        {/* Placeholder for future edit actions */}
+                        <button className="outline-btn" onClick={() => openEdit(u)}>Edit</button>
                       </td>
                     </tr>
                   ))}
@@ -270,6 +303,10 @@ const SettingsPage = () => {
                 <input className="text-input" type="password" value={newUser.password} onChange={(e)=>setNewUser({...newUser, password: e.target.value})} />
               </div>
               <div className="form-col">
+                <label>Avatar</label>
+                <input className="text-input" type="file" accept="image/*" onChange={(e)=>setNewUser({...newUser, avatarFile: e.target.files?.[0] || null})} />
+              </div>
+              <div className="form-col">
                 <label>Role</label>
                 <select className="text-input" value={newUser.role} onChange={(e)=>setNewUser({...newUser, role: e.target.value})}>
                   <option value="admin">Admin</option>
@@ -288,6 +325,46 @@ const SettingsPage = () => {
             <div className="modal-actions">
               <button className="outline-btn" onClick={()=>setShowAddUser(false)}>Cancel</button>
               <button className="primary-btn" onClick={handleAddUser} disabled={savingUser}>{savingUser ? 'Saving...' : 'Add User'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEditUser && (
+        <div className="modal-overlay" onClick={()=>setShowEditUser(false)}>
+          <div className="modal-content" onClick={(e)=>e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Edit User</h3>
+              <button onClick={()=>setShowEditUser(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-col">
+                <label>Name</label>
+                <input className="text-input" value={editUser.username} onChange={(e)=>setEditUser({...editUser, username: e.target.value})} />
+              </div>
+              <div className="form-col">
+                <label>Role</label>
+                <select className="text-input" value={editUser.role} onChange={(e)=>setEditUser({...editUser, role: e.target.value})}>
+                  <option value="admin">Admin</option>
+                  <option value="driver">Driver</option>
+                  <option value="staff">Staff</option>
+                </select>
+              </div>
+              <div className="form-col">
+                <label>Status</label>
+                <select className="text-input" value={editUser.status} onChange={(e)=>setEditUser({...editUser, status: e.target.value})}>
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </div>
+              <div className="form-col">
+                <label>Avatar</label>
+                <input className="text-input" type="file" accept="image/*" onChange={(e)=>setEditUser({...editUser, avatarFile: e.target.files?.[0] || null})} />
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button className="outline-btn" onClick={()=>setShowEditUser(false)}>Cancel</button>
+              <button className="primary-btn" onClick={handleUpdateUser} disabled={savingUser}>{savingUser ? 'Saving...' : 'Save Changes'}</button>
             </div>
           </div>
         </div>

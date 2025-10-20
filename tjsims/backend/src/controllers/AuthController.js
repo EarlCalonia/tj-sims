@@ -9,7 +9,7 @@ export class AuthController {
         return res.status(400).json({ success: false, message: 'Email and password are required' });
       }
       const pool = getPool();
-      let [rows] = await pool.execute('SELECT id, username, email, password_hash, role, status FROM users WHERE email = ?', [email]);
+      let [rows] = await pool.execute('SELECT id, username, email, password_hash, role, status, avatar FROM users WHERE email = ?', [email]);
 
       // Bootstrap default admin if users table is empty
       if (rows.length === 0) {
@@ -21,7 +21,7 @@ export class AuthController {
             [defaultHash]
           );
           // Try to fetch again
-          ;[rows] = await pool.execute('SELECT id, username, email, password_hash, role, status FROM users WHERE email = ?', [email]);
+          ;[rows] = await pool.execute('SELECT id, username, email, password_hash, role, status, avatar FROM users WHERE email = ?', [email]);
         }
       }
 
@@ -36,7 +36,7 @@ export class AuthController {
       if (user.status !== 'Active') {
         return res.status(403).json({ success: false, message: 'User is inactive' });
       }
-      res.json({ success: true, data: { id: user.id, username: user.username, email: user.email, role: user.role, status: user.status } });
+      res.json({ success: true, data: { id: user.id, username: user.username, email: user.email, role: user.role, status: user.status, avatar: user.avatar } });
     } catch (err) {
       console.error('Login error:', err);
       res.status(500).json({ success: false, message: 'Login failed' });
