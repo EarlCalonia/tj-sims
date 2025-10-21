@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Oct 20, 2025 at 05:35 AM
+-- Generation Time: Oct 21, 2025 at 03:43 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.1.25
 
@@ -20,6 +20,31 @@ SET time_zone = "+00:00";
 --
 -- Database: `tjsims_db`
 --
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `app_settings`
+--
+
+CREATE TABLE `app_settings` (
+  `id` int(11) NOT NULL,
+  `store_name` varchar(255) NOT NULL,
+  `address` varchar(255) NOT NULL,
+  `contact_number` varchar(50) NOT NULL,
+  `email` varchar(100) NOT NULL,
+  `cash_enabled` tinyint(1) NOT NULL DEFAULT 1,
+  `gcash_enabled` tinyint(1) NOT NULL DEFAULT 1,
+  `cod_enabled` tinyint(1) NOT NULL DEFAULT 1,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `app_settings`
+--
+
+INSERT INTO `app_settings` (`id`, `store_name`, `address`, `contact_number`, `email`, `cash_enabled`, `gcash_enabled`, `cod_enabled`, `updated_at`) VALUES
+(1, 'Your Store', 'Address', '09123456789', 'store@example.com', 1, 1, 0, '2025-10-20 17:07:48');
 
 -- --------------------------------------------------------
 
@@ -43,7 +68,13 @@ INSERT INTO `brands` (`id`, `name`, `description`, `created_at`) VALUES
 (2, 'Akebono', 'Japanese brake system specialist', '2025-10-11 11:11:18'),
 (3, 'KYB', 'Shock absorber and suspension specialist', '2025-10-11 11:11:18'),
 (4, 'Gates', 'Belt and hose manufacturer', '2025-10-11 11:11:18'),
-(5, 'Moog', 'Steering and suspension parts', '2025-10-11 11:11:18');
+(5, 'Moog', 'Steering and suspension parts', '2025-10-11 11:11:18'),
+(6, 'Honda', 'Automotive manufacturer', '2025-10-20 16:11:25'),
+(7, 'Hyundai', 'Automotive manufacturer', '2025-10-20 16:11:25'),
+(8, 'Isuzu', 'Automotive manufacturer', '2025-10-20 16:11:25'),
+(9, 'Kia', 'Automotive manufacturer', '2025-10-20 16:11:25'),
+(10, 'Mitsubishi', 'Automotive manufacturer', '2025-10-20 16:11:25'),
+(11, 'Daewoo', 'Automotive manufacturer', '2025-10-20 16:11:25');
 
 -- --------------------------------------------------------
 
@@ -98,7 +129,7 @@ INSERT INTO `inventory` (`id`, `product_id`, `stock`, `reorder_point`, `supplier
 (8, 'PRD-004', 7, 6, NULL, '2025-10-11 14:02:24', '2025-10-11 14:02:24', '2025-10-13 14:33:23'),
 (9, 'PRD-005', 50, 10, NULL, '2025-10-11 14:02:30', '2025-10-11 14:02:30', '2025-10-11 14:02:30'),
 (10, 'P007', 12, 10, NULL, '2025-10-14 19:49:40', '2025-10-14 19:49:40', '2025-10-14 19:50:07'),
-(11, 'P008', 3, 3, NULL, '2025-10-14 20:22:59', '2025-10-14 20:22:59', '2025-10-14 20:32:53');
+(11, 'P008', 1, 3, NULL, '2025-10-14 20:22:59', '2025-10-14 20:22:59', '2025-10-20 16:11:48');
 
 -- --------------------------------------------------------
 
@@ -199,7 +230,10 @@ INSERT INTO `inventory_transactions` (`id`, `transaction_id`, `inventory_id`, `p
 (73, 'TRX-1760473974505-17', 11, 'P008', 'out', 0, 'Stock update through admin interface', '2025-10-14 20:32:54', NULL, '2025-10-14 20:32:54', '2025-10-14 20:32:54'),
 (74, 'TRX-1760473974611-53', 4, 'PRD-006', 'out', 0, 'Stock update through admin interface', '2025-10-14 20:32:54', NULL, '2025-10-14 20:32:54', '2025-10-14 20:32:54'),
 (75, 'TRX-1760930016003-15', 11, 'P008', 'out', 0, 'Stock update through admin interface', '2025-10-20 03:13:36', NULL, '2025-10-20 03:13:36', '2025-10-20 03:13:36'),
-(76, 'TRX-1760930019902-14', 11, 'P008', 'out', 0, 'Stock update through admin interface', '2025-10-20 03:13:39', NULL, '2025-10-20 03:13:39', '2025-10-20 03:13:39');
+(76, 'TRX-1760930019902-14', 11, 'P008', 'out', 0, 'Stock update through admin interface', '2025-10-20 03:13:39', NULL, '2025-10-20 03:13:39', '2025-10-20 03:13:39'),
+(77, 'TRX-1760976698198-53', 11, 'P008', 'out', 0, 'Stock update through admin interface', '2025-10-20 16:11:38', NULL, '2025-10-20 16:11:38', '2025-10-20 16:11:38'),
+(78, 'TXN1760976708332', 11, 'P008', 'out', 2, 'Sale deduction', '2025-10-20 16:11:48', 'System', '2025-10-20 16:11:48', '2025-10-20 16:11:48'),
+(79, 'TRX-1760976709605-71', 11, 'P008', 'out', 0, 'Stock update through admin interface', '2025-10-20 16:11:49', NULL, '2025-10-20 16:11:49', '2025-10-20 16:11:49');
 
 -- --------------------------------------------------------
 
@@ -250,22 +284,24 @@ CREATE TABLE `sales` (
   `payment_status` enum('Paid','Unpaid') NOT NULL DEFAULT 'Unpaid',
   `total` decimal(10,2) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `status` enum('Pending','Processing','Completed','Cancelled') DEFAULT 'Pending'
+  `status` enum('Pending','Processing','Completed','Cancelled') DEFAULT 'Pending',
+  `address` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `sales`
 --
 
-INSERT INTO `sales` (`id`, `sale_number`, `customer_name`, `contact`, `payment`, `payment_status`, `total`, `created_at`, `status`) VALUES
-(1, 'SL251013001', 'doggy', '09090909009', 'GCash', 'Paid', 4800.00, '2025-10-13 14:32:48', 'Completed'),
-(2, 'SL251013002', 'gagsti', '121313113213223', 'Cash', 'Paid', 11480.00, '2025-10-13 14:33:23', 'Cancelled'),
-(3, 'SL251015001', 'clarence', '09174205498', 'Cash', 'Paid', 6100.00, '2025-10-14 17:46:06', 'Completed'),
-(4, 'SL251015002', 'testing_oct15', '09090909090', 'Cash', 'Paid', 17800.00, '2025-10-14 19:24:58', 'Completed'),
-(5, 'SL251015003', 'asd', 'asd', 'GCash', 'Paid', 1600.00, '2025-10-14 19:47:21', 'Completed'),
-(6, 'SL251015004', 'Renz', '09521784542', 'Cash', 'Paid', 21100.00, '2025-10-14 19:50:06', 'Completed'),
-(7, 'SL251015005', 'Renztesting', '1231231321', 'Cash', 'Paid', 50000.00, '2025-10-14 20:23:22', 'Completed'),
-(8, 'SL251015006', 'renz_test2', '12221231321', 'Cash', 'Paid', 51600.00, '2025-10-14 20:32:53', 'Completed');
+INSERT INTO `sales` (`id`, `sale_number`, `customer_name`, `contact`, `payment`, `payment_status`, `total`, `created_at`, `status`, `address`) VALUES
+(1, 'SL251013001', 'doggy', '09090909009', 'GCash', 'Paid', 4800.00, '2025-10-13 14:32:48', 'Completed', NULL),
+(2, 'SL251013002', 'gagsti', '121313113213223', 'Cash', 'Paid', 11480.00, '2025-10-13 14:33:23', 'Cancelled', NULL),
+(3, 'SL251015001', 'clarence', '09174205498', 'Cash', 'Paid', 6100.00, '2025-10-14 17:46:06', 'Completed', NULL),
+(4, 'SL251015002', 'testing_oct15', '09090909090', 'Cash', 'Paid', 17800.00, '2025-10-14 19:24:58', 'Completed', NULL),
+(5, 'SL251015003', 'asd', 'asd', 'GCash', 'Paid', 1600.00, '2025-10-14 19:47:21', 'Completed', NULL),
+(6, 'SL251015004', 'Renz', '09521784542', 'Cash', 'Paid', 21100.00, '2025-10-14 19:50:06', 'Completed', NULL),
+(7, 'SL251015005', 'Renztesting', '1231231321', 'Cash', 'Paid', 50000.00, '2025-10-14 20:23:22', 'Completed', NULL),
+(8, 'SL251015006', 'renz_test2', '12221231321', 'Cash', 'Paid', 51600.00, '2025-10-14 20:32:53', 'Completed', NULL),
+(9, 'SL251021001', 'asd', 'asd', 'Cash', 'Paid', 100000.00, '2025-10-20 16:11:48', 'Processing', 'asdas, Pampanga');
 
 -- --------------------------------------------------------
 
@@ -307,7 +343,8 @@ INSERT INTO `sale_items` (`id`, `sale_id`, `product_id`, `product_name`, `brand`
 (16, 6, 'PRD-001', 'Engine Oil Filter', 'Akebono', 4500.00, 1, 4500.00),
 (17, 7, 'P008', 'Turbocharger', 'Akebono', 50000.00, 1, 50000.00),
 (18, 8, 'P008', 'Turbocharger', 'Akebono', 50000.00, 1, 50000.00),
-(19, 8, 'PRD-006', 'GHAHAHAHA', 'Akebono', 1600.00, 1, 1600.00);
+(19, 8, 'PRD-006', 'GHAHAHAHA', 'Akebono', 1600.00, 1, 1600.00),
+(20, 9, 'P008', 'Turbocharger', 'Akebono', 50000.00, 2, 100000.00);
 
 -- --------------------------------------------------------
 
@@ -337,17 +374,32 @@ CREATE TABLE `suppliers` (
 CREATE TABLE `users` (
   `id` int(11) NOT NULL,
   `username` varchar(50) NOT NULL,
+  `avatar` varchar(255) DEFAULT NULL,
   `email` varchar(100) NOT NULL,
   `password_hash` varchar(255) NOT NULL,
-  `role` enum('admin','manager','staff') DEFAULT 'staff',
+  `role` enum('admin','manager','staff','driver') DEFAULT 'staff',
   `status` enum('Active','Inactive') DEFAULT 'Active',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
+-- Dumping data for table `users`
+--
+
+INSERT INTO `users` (`id`, `username`, `avatar`, `email`, `password_hash`, `role`, `status`, `created_at`, `updated_at`) VALUES
+(1, 'Admin', '/uploads/avatar-1760980713554-492802907.jpg', 'admin@gmail.com', '$2a$10$MpVMcstcDXulXAwf.CPzEOvWhpnMR2nXu5wKepRt4JVrvf8aJcvvG', 'admin', 'Active', '2025-10-20 17:05:18', '2025-10-20 17:18:33'),
+(2, 'driver-nim', '/uploads/avatar-1760980649142-880232146.jpg', 'tjc_driver@gmail.com', '$2a$10$Xv3YuUayTfZKRMBeimeeqegRw.gdHObECa5iaJLkkKqRuHkY3OqwG', 'driver', 'Active', '2025-10-20 17:09:17', '2025-10-20 17:17:29');
+
+--
 -- Indexes for dumped tables
 --
+
+--
+-- Indexes for table `app_settings`
+--
+ALTER TABLE `app_settings`
+  ADD PRIMARY KEY (`id`);
 
 --
 -- Indexes for table `brands`
@@ -400,7 +452,9 @@ ALTER TABLE `products`
 ALTER TABLE `sales`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `sale_number` (`sale_number`),
-  ADD KEY `idx_sale_number` (`sale_number`);
+  ADD KEY `idx_sale_number` (`sale_number`),
+  ADD KEY `idx_sales_status` (`status`),
+  ADD KEY `idx_sales_created_at` (`created_at`);
 
 --
 -- Indexes for table `sale_items`
@@ -427,17 +481,25 @@ ALTER TABLE `users`
   ADD KEY `idx_username` (`username`),
   ADD KEY `idx_email` (`email`),
   ADD KEY `idx_role` (`role`),
-  ADD KEY `idx_status` (`status`);
+  ADD KEY `idx_status` (`status`),
+  ADD KEY `idx_users_role` (`role`),
+  ADD KEY `idx_users_status` (`status`);
 
 --
 -- AUTO_INCREMENT for dumped tables
 --
 
 --
+-- AUTO_INCREMENT for table `app_settings`
+--
+ALTER TABLE `app_settings`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
 -- AUTO_INCREMENT for table `brands`
 --
 ALTER TABLE `brands`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
 -- AUTO_INCREMENT for table `categories`
@@ -455,7 +517,7 @@ ALTER TABLE `inventory`
 -- AUTO_INCREMENT for table `inventory_transactions`
 --
 ALTER TABLE `inventory_transactions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=77;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=80;
 
 --
 -- AUTO_INCREMENT for table `products`
@@ -467,13 +529,13 @@ ALTER TABLE `products`
 -- AUTO_INCREMENT for table `sales`
 --
 ALTER TABLE `sales`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `sale_items`
 --
 ALTER TABLE `sale_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=20;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
 
 --
 -- AUTO_INCREMENT for table `suppliers`
@@ -485,7 +547,7 @@ ALTER TABLE `suppliers`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- Constraints for dumped tables
