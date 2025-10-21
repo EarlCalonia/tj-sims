@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Oct 21, 2025 at 03:43 AM
+-- Generation Time: Oct 21, 2025 at 09:01 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.1.25
 
@@ -260,12 +260,12 @@ CREATE TABLE `products` (
 --
 
 INSERT INTO `products` (`id`, `product_id`, `name`, `brand`, `category`, `price`, `status`, `description`, `image`, `created_at`, `updated_at`) VALUES
-(1, 'PRD-001', 'Engine Oil Filter', 'Akebono', 'Engine & Cooling', 4500.00, 'Active', 'High-quality engine oil filter for various vehicle models', NULL, '2025-10-11 11:11:17', '2025-10-11 12:02:19'),
-(2, 'PRD-002', 'Brake Pad Set', 'Akebono', 'Brake Parts', 1200.00, 'Active', 'Front brake pad set for sedans and SUVs', NULL, '2025-10-11 11:11:17', '2025-10-11 11:11:17'),
-(3, 'PRD-003', 'Shock Absorber', 'KYB', 'Suspension & Steering', 3500.00, 'Active', 'Rear shock absorber for pickup trucks', NULL, '2025-10-11 11:11:17', '2025-10-11 13:22:36'),
+(1, 'PRD-001', 'Engine Oil Filter', 'Akebono', 'Engine & Cooling', 4500.00, 'Active', 'High-quality engine oil filter for various vehicle models', '/uploads/image-1761028296231-713914561.jpg', '2025-10-11 11:11:17', '2025-10-21 06:31:36'),
+(2, 'PRD-002', 'Brake Pad Set', 'Akebono', 'Brake Parts', 1200.00, 'Active', 'Front brake pad set for sedans and SUVs', '/uploads/image-1761028335428-830091597.jpg', '2025-10-11 11:11:17', '2025-10-21 06:32:15'),
+(3, 'PRD-003', 'Shock Absorber', 'KYB', 'Suspension & Steering', 3500.00, 'Active', 'Rear shock absorber for pickup trucks', '/uploads/image-1761028355485-181145703.jpg', '2025-10-11 11:11:17', '2025-10-21 06:32:35'),
 (4, 'PRD-004', 'Radiator Hose', 'Gates', 'Engine & Cooling', 680.00, 'Active', 'Upper radiator hose for diesel engines', '/uploads/image-1760189191563-350730914.jpg', '2025-10-11 11:11:17', '2025-10-11 13:26:31'),
 (5, 'PRD-005', 'CV Joint Boot', 'Moog', 'Transmission', 320.00, 'Active', 'CV joint boot kit with clamps and grease', '/uploads/image-1760189149859-123979443.jpg', '2025-10-11 11:11:17', '2025-10-11 13:25:49'),
-(6, 'PRD-006', 'GHAHAHAHA', 'Akebono', 'Brake Parts', 1600.00, 'Active', 'hahaha', '/uploads/image-1760188766987-48191294.png', '2025-10-11 12:10:49', '2025-10-13 13:47:41'),
+(6, 'PRD-006', 'GHAHAHAHA', 'Akebono', 'Brake Parts', 1600.00, 'Active', 'hahaha', '/uploads/image-1761028234398-382271106.jpg', '2025-10-11 12:10:49', '2025-10-21 06:30:34'),
 (7, 'P007', 'GAGO', 'Akebono', 'Brake Parts', 5000.00, 'Inactive', 'GAGOGAGAOGAOGAO', '/uploads/image-1760471370435-377723803.jpg', '2025-10-14 19:49:30', '2025-10-14 20:20:25'),
 (8, 'P008', 'Turbocharger', 'Akebono', 'Transmission', 50000.00, 'Active', 'this turbo is shit\r\n', '/uploads/image-1760473363109-453700899.jpg', '2025-10-14 20:22:43', '2025-10-14 20:22:43');
 
@@ -301,7 +301,7 @@ INSERT INTO `sales` (`id`, `sale_number`, `customer_name`, `contact`, `payment`,
 (6, 'SL251015004', 'Renz', '09521784542', 'Cash', 'Paid', 21100.00, '2025-10-14 19:50:06', 'Completed', NULL),
 (7, 'SL251015005', 'Renztesting', '1231231321', 'Cash', 'Paid', 50000.00, '2025-10-14 20:23:22', 'Completed', NULL),
 (8, 'SL251015006', 'renz_test2', '12221231321', 'Cash', 'Paid', 51600.00, '2025-10-14 20:32:53', 'Completed', NULL),
-(9, 'SL251021001', 'asd', 'asd', 'Cash', 'Paid', 100000.00, '2025-10-20 16:11:48', 'Processing', 'asdas, Pampanga');
+(9, 'SL251021001', 'asd', 'asd', 'Cash', 'Paid', 100000.00, '2025-10-20 16:11:48', 'Completed', 'asdas, Pampanga');
 
 -- --------------------------------------------------------
 
@@ -388,7 +388,7 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `username`, `avatar`, `email`, `password_hash`, `role`, `status`, `created_at`, `updated_at`) VALUES
-(1, 'Admin', '/uploads/avatar-1760980713554-492802907.jpg', 'admin@gmail.com', '$2a$10$MpVMcstcDXulXAwf.CPzEOvWhpnMR2nXu5wKepRt4JVrvf8aJcvvG', 'admin', 'Active', '2025-10-20 17:05:18', '2025-10-20 17:18:33'),
+(1, 'Coco M.', '/uploads/avatar-1760980713554-492802907.jpg', 'admin@gmail.com', '$2a$10$MpVMcstcDXulXAwf.CPzEOvWhpnMR2nXu5wKepRt4JVrvf8aJcvvG', 'admin', 'Active', '2025-10-20 17:05:18', '2025-10-21 01:46:27'),
 (2, 'driver-nim', '/uploads/avatar-1760980649142-880232146.jpg', 'tjc_driver@gmail.com', '$2a$10$Xv3YuUayTfZKRMBeimeeqegRw.gdHObECa5iaJLkkKqRuHkY3OqwG', 'driver', 'Active', '2025-10-20 17:09:17', '2025-10-20 17:17:29');
 
 --

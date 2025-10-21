@@ -4,6 +4,8 @@ import LoginPage from './pages/LoginPage';
 import RecoveryPage from './pages/RecoveryPage';
 import LandingPage from './pages/client/LandingPage';
 import Products from './pages/client/Products';
+import ProductDetails from './pages/client/ProductDetails';
+import OrderStatus from './pages/client/OrderStatus';
 import DashboardPage from './pages/admin/DashboardPage';
 import SalesPage from './pages/admin/SalesPage';
 import InventoryPage from './pages/admin/InventoryPage';
@@ -37,7 +39,8 @@ const App = () => {
         {/* Client Routes */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/products" element={<Products />} />
-        <Route path="/order-status" element={<LandingPage />} />
+        <Route path="/products/:id" element={<ProductDetails />} />
+        <Route path="/order-status" element={<OrderStatus />} />
         <Route path="/contact-us" element={<LandingPage />} />
         
         {/* Admin Routes */}
