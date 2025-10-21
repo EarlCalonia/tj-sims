@@ -5,6 +5,7 @@ import { salesAPI } from '../../utils/api';
 import jsPDF from 'jspdf';
 
 const peso = (n) => `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const pesoPDF = (n) => `PHP ${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const Badge = ({ children, color }) => (
   <span style={{
@@ -49,14 +50,19 @@ const OrderStatus = () => {
     setError('');
     setOrder(null);
     try {
-      // Try filter by sale_number on backend; fallback to client filter if unsupported
+      // Try filter by sale_number on backend; use exact match only, no fallback
       const list = await salesAPI.getSales({ sale_number: orderId.trim() });
-      const found = (list || []).find(s => (s.sale_number || '').toLowerCase() === orderId.trim().toLowerCase()) || (list || [])[0];
+      const found = (list || []).find(s => (s.sale_number || '').toLowerCase() === orderId.trim().toLowerCase());
       if (!found) {
-        setError('Order not found');
+        setError('Order not found.');
         return;
       }
       const items = await salesAPI.getSaleItems(found.id);
+      const isCancelled = String(found.status || '').toLowerCase().includes('cancel');
+      if (isCancelled) {
+        setError('Order not found.');
+        return;
+      }
       setOrder({ header: found, items });
     } catch (e) {
       setError(e.message || 'Failed to fetch order');
@@ -80,6 +86,14 @@ const OrderStatus = () => {
 
     let y = 40;
     doc.setFontSize(10);
+    const customerName = String(
+      order.header.customer_name ||
+      order.header.customerName ||
+      order.header.customer ||
+      order.header.name ||
+      ''
+    ).trim();
+    if (customerName) { doc.text(`Customer Name: ${customerName}`, 20, y); y += 7; }
     doc.text(`Order Status: ${order.header.status}`, 20, y); y += 7;
     doc.text(`Payment Status: ${order.header.payment_status}`, 20, y); y += 7;
     doc.text(`Shipping Option: ${order.header.payment}`, 20, y); y += 10;
@@ -87,10 +101,10 @@ const OrderStatus = () => {
     // Table headers
     doc.setFont('helvetica', 'bold');
     doc.text('Product Name', 20, y);
-    doc.text('Brand', 90, y);
-    doc.text('Qty', 130, y);
-    doc.text('Unit Price', 150, y);
-    doc.text('Total', 180, y, { align: 'right' });
+    doc.text('Brand', 75, y);
+    doc.text('Qty', 115, y);
+    doc.text('Unit Price', 140, y);
+    doc.text('Total', 190, y, { align: 'right' });
     y += 6;
     doc.line(18, y, pageWidth - 18, y);
     y += 4;
@@ -102,17 +116,17 @@ const OrderStatus = () => {
       const total = Number(it.subtotal || it.totalPrice || unit * (it.quantity || 0));
       const name = String(it.product_name || it.productName || '').slice(0, 35);
       doc.text(name, 20, y);
-      doc.text(String(it.brand || ''), 90, y);
-      doc.text(String(it.quantity || 0), 130, y);
-      doc.text(peso(unit), 150, y);
-      doc.text(peso(total), 180, y, { align: 'right' });
+      doc.text(String(it.brand || ''), 75, y);
+      doc.text(String(it.quantity || 0), 115, y);
+      doc.text(pesoPDF(unit), 140, y);
+      doc.text(pesoPDF(total), 190, y, { align: 'right' });
       y += 6;
     });
 
     y += 4; doc.line(18, y, pageWidth - 18, y); y += 8;
     doc.setFont('helvetica', 'bold');
     doc.text('Grand Total:', 140, y);
-    doc.text(peso(grandTotal), 180, y, { align: 'right' });
+    doc.text(pesoPDF(grandTotal), 190, y, { align: 'right' });
 
     doc.save(`${order.header.sale_number}.pdf`);
   };
@@ -161,6 +175,15 @@ const OrderStatus = () => {
             <button onClick={exportPDF} style={{ position: 'absolute', right: 16, top: 16, background: '#0b63c5', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontWeight: 700 }}>Export as PDF</button>
 
             <div style={{ display: 'grid', gap: 10, marginTop: 12, marginBottom: 16 }}>
+              {(() => {
+                const customerName = (order.header.customer_name || order.header.customerName || order.header.customer || order.header.name || '').trim();
+                return customerName ? (
+                  <div>
+                    <div style={{ color: '#334155', fontSize: 14 }}>Customer Name:</div>
+                    <Badge color={{ bg: '#e2e8f0', fg: '#0f172a' }}>{customerName}</Badge>
+                  </div>
+                ) : null;
+              })()}
               <div>
                 <div style={{ color: '#334155', fontSize: 14 }}>Order Status:</div>
                 <Badge color={statusColor(order.header.status)}>{order.header.status}</Badge>
