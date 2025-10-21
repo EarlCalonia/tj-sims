@@ -62,7 +62,7 @@ const Navbar = () => {
           <button className="profile-btn" onClick={() => setOpen(!open)}>
             <div className="profile-icon">
               {(avatar && (role === 'admin' || role === 'staff')) ? (
-                <img src={"http://localhost:5000"+avatar} alt="avatar" style={{ width: 42, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
+                <img src={"http://localhost:5000"+ avatar} alt="avatar" style={{ width: 42, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
               ) : (
                 <BiUserCircle size={24} />
               )}
