@@ -9,6 +9,89 @@ const handleResponse = async (response) => {
   return response.json();
 };
 
+// Authentication API
+export const authAPI = {
+  login: async (email, password) => {
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  },
+  changePassword: async (userId, current_password, new_password) => {
+    const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, current_password, new_password }),
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  },
+  logout: async () => {
+    const response = await fetch(`${API_BASE_URL}/auth/logout`, {
+      method: 'POST',
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  }
+};
+
+// Users API
+export const usersAPI = {
+  list: async () => {
+    const response = await fetch(`${API_BASE_URL}/users`, { credentials: 'include' });
+    return handleResponse(response);
+  },
+  create: async (user) => {
+    const isForm = typeof FormData !== 'undefined' && user instanceof FormData;
+    const response = await fetch(`${API_BASE_URL}/users`, {
+      method: 'POST',
+      headers: isForm ? undefined : { 'Content-Type': 'application/json' },
+      body: isForm ? user : JSON.stringify(user),
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  },
+  update: async (id, user) => {
+    const isForm = typeof FormData !== 'undefined' && user instanceof FormData;
+    const response = await fetch(`${API_BASE_URL}/users/${id}`, {
+      method: 'PUT',
+      headers: isForm ? undefined : { 'Content-Type': 'application/json' },
+      body: isForm ? user : JSON.stringify(user),
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  }
+};
+
+// Settings API
+export const settingsAPI = {
+  get: async () => {
+    const response = await fetch(`${API_BASE_URL}/settings`, { credentials: 'include' });
+    return handleResponse(response);
+  },
+  updateBusinessInfo: async (payload) => {
+    const response = await fetch(`${API_BASE_URL}/settings`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  },
+  updatePreferences: async (payload) => {
+    const response = await fetch(`${API_BASE_URL}/settings/preferences`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  }
+};
+
 // Product API functions
 export const productAPI = {
   // Get all products with optional filters
@@ -300,6 +383,43 @@ export const reportsAPI = {
     const queryString = params.toString();
     const url = `${API_BASE_URL}/reports/inventory/export/csv${queryString ? `?${queryString}` : ''}`;
 
+    const response = await fetch(url, {
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  },
+};
+
+// Dashboard API functions
+export const dashboardAPI = {
+  // Get dashboard statistics
+  getDashboardStats: async () => {
+    const response = await fetch(`${API_BASE_URL}/dashboard/stats`, {
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  },
+
+  // Get recent sales transactions
+  getRecentSales: async () => {
+    const response = await fetch(`${API_BASE_URL}/dashboard/recent-sales`, {
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  },
+
+  // Get low stock items
+  getLowStockItems: async () => {
+    const response = await fetch(`${API_BASE_URL}/dashboard/low-stock`, {
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  },
+
+  // Get sales aggregated by period
+  // period: 'week' | 'month' | 'year'
+  getDailySales: async (period = 'week') => {
+    const url = `${API_BASE_URL}/dashboard/daily-sales?period=${encodeURIComponent(period)}`;
     const response = await fetch(url, {
       credentials: 'include'
     });

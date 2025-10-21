@@ -6,7 +6,7 @@ export class SalesController {
   // Create a new sale
   static async createSale(req, res) {
     try {
-      const { customer_name, contact, payment, payment_status, items } = req.body;
+      const { customer_name, contact, payment, payment_status, status, address, items } = req.body;
 
       // Validate required fields
       if (!customer_name || !payment || !items || items.length === 0) {
@@ -57,6 +57,8 @@ export class SalesController {
         contact,
         payment,
         payment_status,
+        status,
+        address,
         total,
         items: enrichedItems
       };
@@ -95,7 +97,7 @@ export class SalesController {
       const totalPages = Math.ceil(total / limit);
 
       // Get paginated results
-      let query = 'SELECT * FROM sales WHERE 1=1';
+      let query = "SELECT * FROM sales WHERE 1=1 AND (status IS NULL OR status <> 'Cancelled')";
       let params = [];
 
       if (search) {
