@@ -158,9 +158,9 @@ export class Product {
   static async getBrands() {
     const pool = getPool();
     const [rows] = await pool.execute(
-      'SELECT DISTINCT brand FROM products ORDER BY brand'
+      'SELECT name FROM brands ORDER BY name'
     );
-    return rows.map(row => row.brand);
+    return rows.map(row => row.name);
   }
 
   // Seed sample data for development (optional, remove in production)
