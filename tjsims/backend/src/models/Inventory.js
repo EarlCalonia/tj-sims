@@ -13,7 +13,7 @@ export class Inventory {
     return rows[0];
   }
 
-  static async updateStock(productId, quantity, reorderPoint = null) {
+  static async updateStock(productId, quantity, reorderPoint = null, options = {}) {
     const pool = getPool();
     const connection = await pool.getConnection();
 
@@ -49,12 +49,16 @@ export class Inventory {
       } else {
         // Update existing inventory
         const newStock = Math.max(0, inventory[0].stock + quantity); // Ensure stock never goes below 0
+        const updates = [`stock = ?`, `reorder_point = COALESCE(?, reorder_point)`];
+        const params = [newStock, reorderPoint];
+        if (options.supplierId) { updates.push(`supplier_id = ?`); params.push(options.supplierId); }
+        if (options.transactionDate) { updates.push(`last_restock_date = ?`); params.push(new Date(options.transactionDate)); }
+        params.push(productId);
         await connection.execute(
           `UPDATE inventory 
-           SET stock = ?, 
-               reorder_point = COALESCE(?, reorder_point)
+           SET ${updates.join(', ')}
            WHERE product_id = ?`,
-          [newStock, reorderPoint, productId]
+          params
         );
         inventoryId = inventory[0].id;
       }
@@ -63,6 +67,9 @@ export class Inventory {
       const transactionId = `TRX-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
       // Record the transaction
+      const createdBy = options.createdBy || 'System';
+      const txnDate = options.transactionDate ? new Date(options.transactionDate) : new Date();
+      const notes = options.notes || 'Stock update through admin interface';
       await connection.execute(
         `INSERT INTO inventory_transactions (
            transaction_id,
@@ -70,15 +77,19 @@ export class Inventory {
            product_id,
            transaction_type,
            quantity,
-           notes
-         ) VALUES (?, ?, ?, ?, ?, ?)`,
+           notes,
+           transaction_date,
+           created_by
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           transactionId,
           inventoryId,
           productId,
           quantity > 0 ? 'in' : 'out',
           Math.abs(quantity),
-          'Stock update through admin interface'
+          notes,
+          txnDate,
+          createdBy
         ]
       );
 

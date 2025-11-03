@@ -12,14 +12,19 @@ const Navbar = () => {
   const dropdownRef = useRef(null);
   const username = localStorage.getItem('username') || 'Admin';
   const role = localStorage.getItem('userRole') || 'Administrator';
-  const avatar = localStorage.getItem('avatar') || '';
+  const [avatarPath, setAvatarPath] = useState(localStorage.getItem('avatar') || '');
   
   useEffect(() => {
     const onClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setOpen(false);
     };
+    const onAvatarChanged = () => setAvatarPath(localStorage.getItem('avatar') || '');
     document.addEventListener('click', onClickOutside);
-    return () => document.removeEventListener('click', onClickOutside);
+    window.addEventListener('avatarChanged', onAvatarChanged);
+    return () => {
+      document.removeEventListener('click', onClickOutside);
+      window.removeEventListener('avatarChanged', onAvatarChanged);
+    };
   }, []);
   
   const navItems = [
@@ -61,8 +66,8 @@ const Navbar = () => {
         <div className="navbar-profile" ref={dropdownRef}>
           <button className="profile-btn" onClick={() => setOpen(!open)}>
             <div className="profile-icon">
-              {(avatar && (role === 'admin' || role === 'staff')) ? (
-                <img src={"http://localhost:5000"+ avatar} alt="avatar" style={{ width: 42, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
+              {(avatarPath && (role === 'admin' || role === 'staff')) ? (
+                <img src={"http://localhost:5000"+ avatarPath} alt="avatar" style={{ width: 42, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
               ) : (
                 <BiUserCircle size={24} />
               )}

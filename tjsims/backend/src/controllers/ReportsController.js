@@ -143,7 +143,7 @@ export class ReportsController {
   // Get inventory report data with pagination
   static async getInventoryReport(req, res) {
     try {
-      const { page = 1, limit = 10, search, category, brand, status } = req.query;
+      const { page = 1, limit = 10, search, category, brand, status, stock_status } = req.query;
 
       const offset = (page - 1) * limit;
 
@@ -152,9 +152,11 @@ export class ReportsController {
         SELECT p.product_id, p.name, p.brand, p.category, p.price, p.status,
                p.created_at,
                COALESCE(i.stock, 0) as current_stock,
+               COALESCE(i.reorder_point, 10) as reorder_point,
                CASE
                  WHEN COALESCE(i.stock, 0) <= 0 THEN 'Out of Stock'
-                 WHEN COALESCE(i.stock, 0) <= 10 THEN 'Low Stock'
+                 WHEN COALESCE(i.stock, 0) < COALESCE(i.reorder_point, 10) THEN 'Low Stock'
+                 WHEN COALESCE(i.stock, 0) >= COALESCE(i.reorder_point, 10) * 2 THEN 'Overstock'
                  ELSE 'In Stock'
                END as stock_status
         FROM products p
@@ -183,6 +185,12 @@ export class ReportsController {
         params.push(status);
       }
 
+      // Filter by computed stock_status via HAVING
+      if (stock_status && stock_status !== 'All Status') {
+        query += ' HAVING stock_status = ?';
+        params.push(stock_status);
+      }
+
       query += ' ORDER BY p.created_at DESC LIMIT ? OFFSET ?';
       params.push(parseInt(limit), parseInt(offset));
 
@@ -190,7 +198,19 @@ export class ReportsController {
       const [products] = await pool.execute(query, params);
 
       // Get total count for pagination
-      let countQuery = 'SELECT COUNT(*) as total FROM products p LEFT JOIN inventory i ON p.product_id = i.product_id WHERE 1=1';
+      let countQuery = `
+        SELECT COUNT(*) as total FROM (
+          SELECT p.product_id,
+                 CASE
+                   WHEN COALESCE(i.stock, 0) <= 0 THEN 'Out of Stock'
+                   WHEN COALESCE(i.stock, 0) < COALESCE(i.reorder_point, 10) THEN 'Low Stock'
+                   WHEN COALESCE(i.stock, 0) >= COALESCE(i.reorder_point, 10) * 2 THEN 'Overstock'
+                   ELSE 'In Stock'
+                 END as stock_status
+          FROM products p
+          LEFT JOIN inventory i ON p.product_id = i.product_id
+          WHERE 1=1
+        `;
       let countParams = [];
 
       if (search) {
@@ -211,6 +231,11 @@ export class ReportsController {
       if (status && status !== 'All Status') {
         countQuery += ' AND p.status = ?';
         countParams.push(status);
+      }
+      countQuery += ') t';
+      if (stock_status && stock_status !== 'All Status') {
+        countQuery += ' WHERE t.stock_status = ?';
+        countParams.push(stock_status);
       }
 
       const [totalResult] = await pool.execute(countQuery, countParams);

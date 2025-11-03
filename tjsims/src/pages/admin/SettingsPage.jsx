@@ -136,7 +136,18 @@ const SettingsPage = () => {
       fd.append('role', editUser.role);
       fd.append('status', editUser.status);
       if (editUser.avatarFile) fd.append('avatar', editUser.avatarFile);
-      await usersAPI.update(editUser.id, fd);
+      const res = await usersAPI.update(editUser.id, fd);
+      // If the current user updated their own avatar, reflect it live in Navbar
+      if (res && res.success && String(editUser.id) === String(userId)) {
+        if (typeof res.avatar !== 'undefined') {
+          if (res.avatar) localStorage.setItem('avatar', res.avatar);
+          else localStorage.removeItem('avatar');
+          window.dispatchEvent(new Event('avatarChanged'));
+        }
+        if (editUser.username) {
+          localStorage.setItem('username', editUser.username);
+        }
+      }
       setShowEditUser(false);
       await loadUsers();
     } catch (e) {
