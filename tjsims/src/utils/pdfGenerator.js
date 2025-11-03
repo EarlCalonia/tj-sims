@@ -17,6 +17,44 @@ const loadImageAsDataURL = async (url) => {
   }
 };
 
+// Convert ArrayBuffer to base64
+const bufferToBase64 = (buffer) => {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+};
+
+// Try to embed a Unicode font so '₱' renders correctly
+const ensureUnicodeFont = async (doc) => {
+  try {
+    // Expect font files to be placed in /fonts (public folder)
+    const regularRes = await fetch('/fonts/NotoSans-Regular.ttf');
+    if (!regularRes.ok) return false;
+    const regularBuf = await regularRes.arrayBuffer();
+    const regularB64 = bufferToBase64(regularBuf);
+    doc.addFileToVFS('NotoSans-Regular.ttf', regularB64);
+    doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+
+    // Optional: try bold if present
+    try {
+      const boldRes = await fetch('/fonts/NotoSans-Bold.ttf');
+      if (boldRes.ok) {
+        const boldBuf = await boldRes.arrayBuffer();
+        const boldB64 = bufferToBase64(boldBuf);
+        doc.addFileToVFS('NotoSans-Bold.ttf', boldB64);
+        doc.addFont('NotoSans-Bold.ttf', 'NotoSans', 'bold');
+      }
+    } catch {}
+
+    doc.setFont('NotoSans', 'normal');
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 // Utility function to format currency
 const formatCurrency = (amount) => {
   const num = Number(amount) || 0;
@@ -236,6 +274,121 @@ if (logoDataUrl) {
     // Page _ of _ centered
     doc.text(`Page ${i} of ${pageCount}`, centerX, 285, { align: 'center' });
   }
+
+  return doc;
+};
+
+// Generate a single sale receipt PDF
+export const generateSaleReceipt = async ({
+  saleNumber,
+  customerName,
+  items = [],
+  totalAmount = 0,
+  paymentMethod = 'Cash',
+  tenderedAmount = 0,
+  changeAmount = 0,
+  address = '',
+  shippingOption = 'In-Store Pickup',
+  createdAt = new Date()
+}) => {
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  let y = 40;
+
+  // Ensure a Unicode font for '₱' if available; otherwise fallback to core fonts
+  const fontLoaded = await ensureUnicodeFont(doc);
+  const peso = (n) => {
+    const v = Number(n) || 0;
+    const sym = fontLoaded ? '₱' : 'PHP ';
+    return `${sym}${v.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const logoDataUrl = await loadImageAsDataURL(logoUrl);
+  if (logoDataUrl) {
+    const imgWidth = 70;
+    const imgHeight = 52;
+    const x = (pageWidth - imgWidth) / 2;
+    doc.addImage(logoDataUrl, 'PNG', x, y, imgWidth, imgHeight);
+    y += imgHeight + 10;
+  }
+
+  // Header
+  doc.setFont(fontLoaded ? 'NotoSans' : 'helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.text('TJC Sales Receipt', pageWidth / 2, y, { align: 'center' });
+  y += 14;
+
+  doc.setFont(fontLoaded ? 'NotoSans' : 'helvetica', 'normal');
+  doc.setFontSize(11);
+  const dateStr = new Date(createdAt).toLocaleString('en-PH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const marginLeft = 60;
+  const marginRight = 60;
+  const amountRightX = pageWidth - marginRight;
+  doc.text(`Order #: ${saleNumber}`, marginLeft, y); y += 14;
+  if (customerName) { doc.text(`Customer: ${customerName}`, marginLeft, y); y += 14; }
+  if (address) { doc.text(`Address: ${address}`, marginLeft, y); y += 14; }
+  doc.text(`Date: ${dateStr}`, marginLeft, y); y += 14;
+  doc.text(`Payment: ${paymentMethod}`, marginLeft, y); y += 10;
+
+  // Separator
+  doc.setLineWidth(0.8);
+  doc.line(marginLeft, y, pageWidth - marginRight, y);
+  y += 14;
+
+  // Table headers
+  const colName = marginLeft;
+  const colQty = 330;
+  const colUnit = 400;
+  const colSub = amountRightX;
+  doc.setFont(fontLoaded ? 'NotoSans' : 'helvetica', 'bold');
+  doc.text('Product', colName, y);
+  doc.text('Qty', colQty, y);
+  doc.text('Unit', colUnit, y);
+  doc.text('Subtotal', colSub, y, { align: 'right' });
+  y += 6;
+  doc.setLineWidth(0.5);
+  doc.line(marginLeft, y, pageWidth - marginRight, y);
+  y += 10;
+  doc.setFont(fontLoaded ? 'NotoSans' : 'helvetica', 'normal');
+
+  // Items
+  items.forEach((it) => {
+    if (y > 700) { doc.addPage(); y = 40; }
+    const name = String(it.name || it.product_name || it.productName || '').slice(0, 48);
+    const qty = Number(it.quantity || 0);
+    const unit = Number(it.price || it.unitPrice || 0);
+    const sub = unit * qty;
+    doc.text(name, colName, y);
+    doc.text(String(qty), colQty, y);
+    doc.text(peso(unit), colUnit, y);
+    doc.text(peso(sub), colSub, y, { align: 'right' });
+    y += 12;
+  });
+
+  // Totals
+  y += 4; doc.line(marginLeft, y, pageWidth - marginRight, y); y += 12;
+  doc.setFont(fontLoaded ? 'NotoSans' : 'helvetica', 'bold');
+  const labelX = colUnit - 10;
+  doc.text('Total:', labelX, y);
+  doc.text(peso(totalAmount), colSub, y, { align: 'right' });
+  y += 14;
+  doc.setFont(fontLoaded ? 'NotoSans' : 'helvetica', 'normal');
+  if (paymentMethod.toLowerCase() === 'cash') {
+    doc.text('Cash Tendered:', labelX, y);
+    doc.text(peso(tenderedAmount), colSub, y, { align: 'right' });
+    y += 12;
+    doc.text('Change:', labelX, y);
+    doc.text(peso(changeAmount), colSub, y, { align: 'right' });
+    y += 12;
+  }
+  if (shippingOption) {
+    y += 4;
+    doc.text(`Delivery: ${shippingOption}`, marginLeft, y); y += 12;
+  }
+
+  y += 10;
+  doc.setFont(fontLoaded ? 'NotoSans' : 'helvetica', 'italic');
+  doc.text('Thank you for your purchase!', pageWidth / 2, y, { align: 'center' });
 
   return doc;
 };

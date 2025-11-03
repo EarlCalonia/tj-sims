@@ -3,9 +3,9 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Oct 21, 2025 at 09:01 AM
+-- Generation Time: Nov 03, 2025 at 08:31 AM
 -- Server version: 10.4.32-MariaDB
--- PHP Version: 8.1.25
+-- PHP Version: 8.2.12
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -122,14 +122,14 @@ CREATE TABLE `inventory` (
 --
 
 INSERT INTO `inventory` (`id`, `product_id`, `stock`, `reorder_point`, `supplier_id`, `last_restock_date`, `created_at`, `updated_at`) VALUES
-(4, 'PRD-006', 51, 10, NULL, '2025-10-11 13:58:28', '2025-10-11 13:58:28', '2025-10-14 20:32:53'),
+(4, 'PRD-006', 49, 10, NULL, '2025-10-11 13:58:28', '2025-10-11 13:58:28', '2025-11-03 07:14:02'),
 (5, 'PRD-001', 16, 10, NULL, '2025-10-11 14:02:07', '2025-10-11 14:02:07', '2025-10-14 19:50:07'),
 (6, 'PRD-002', 48, 12, NULL, '2025-10-11 14:02:12', '2025-10-11 14:02:12', '2025-10-14 19:24:58'),
 (7, 'PRD-003', 3, 10, NULL, '2025-10-11 14:02:17', '2025-10-11 14:02:17', '2025-10-14 19:24:58'),
 (8, 'PRD-004', 7, 6, NULL, '2025-10-11 14:02:24', '2025-10-11 14:02:24', '2025-10-13 14:33:23'),
 (9, 'PRD-005', 50, 10, NULL, '2025-10-11 14:02:30', '2025-10-11 14:02:30', '2025-10-11 14:02:30'),
 (10, 'P007', 12, 10, NULL, '2025-10-14 19:49:40', '2025-10-14 19:49:40', '2025-10-14 19:50:07'),
-(11, 'P008', 1, 3, NULL, '2025-10-14 20:22:59', '2025-10-14 20:22:59', '2025-10-20 16:11:48');
+(11, 'P008', 0, 3, NULL, '2025-10-14 20:22:59', '2025-10-14 20:22:59', '2025-11-03 07:10:33');
 
 -- --------------------------------------------------------
 
@@ -233,7 +233,18 @@ INSERT INTO `inventory_transactions` (`id`, `transaction_id`, `inventory_id`, `p
 (76, 'TRX-1760930019902-14', 11, 'P008', 'out', 0, 'Stock update through admin interface', '2025-10-20 03:13:39', NULL, '2025-10-20 03:13:39', '2025-10-20 03:13:39'),
 (77, 'TRX-1760976698198-53', 11, 'P008', 'out', 0, 'Stock update through admin interface', '2025-10-20 16:11:38', NULL, '2025-10-20 16:11:38', '2025-10-20 16:11:38'),
 (78, 'TXN1760976708332', 11, 'P008', 'out', 2, 'Sale deduction', '2025-10-20 16:11:48', 'System', '2025-10-20 16:11:48', '2025-10-20 16:11:48'),
-(79, 'TRX-1760976709605-71', 11, 'P008', 'out', 0, 'Stock update through admin interface', '2025-10-20 16:11:49', NULL, '2025-10-20 16:11:49', '2025-10-20 16:11:49');
+(79, 'TRX-1760976709605-71', 11, 'P008', 'out', 0, 'Stock update through admin interface', '2025-10-20 16:11:49', NULL, '2025-10-20 16:11:49', '2025-10-20 16:11:49'),
+(80, 'TRX-1762150242529-28', 11, 'P008', 'out', 0, 'Stock update through admin interface', '2025-11-03 06:10:42', NULL, '2025-11-03 06:10:42', '2025-11-03 06:10:42'),
+(81, 'TRX-1762153704572-86', 11, 'P008', 'out', 0, 'Stock update through admin interface', '2025-11-03 07:08:24', NULL, '2025-11-03 07:08:24', '2025-11-03 07:08:24'),
+(82, 'TRX-1762153708494-78', 11, 'P008', 'out', 0, 'Stock update through admin interface', '2025-11-03 07:08:28', NULL, '2025-11-03 07:08:28', '2025-11-03 07:08:28'),
+(83, 'TRX-1762153815048-11', 11, 'P008', 'out', 0, 'Stock update through admin interface', '2025-11-03 07:10:15', NULL, '2025-11-03 07:10:15', '2025-11-03 07:10:15'),
+(84, 'TXN1762153833016', 11, 'P008', 'out', 1, 'Sale deduction', '2025-11-03 07:10:33', 'System', '2025-11-03 07:10:33', '2025-11-03 07:10:33'),
+(85, 'TRX-1762153838392-50', 11, 'P008', 'out', 0, 'Stock update through admin interface', '2025-11-03 07:10:38', NULL, '2025-11-03 07:10:38', '2025-11-03 07:10:38'),
+(86, 'TRX-1762153967163-40', 4, 'PRD-006', 'out', 0, 'Stock update through admin interface', '2025-11-03 07:12:47', NULL, '2025-11-03 07:12:47', '2025-11-03 07:12:47'),
+(87, 'TRX-1762153967336-77', 4, 'PRD-006', 'out', 0, 'Stock update through admin interface', '2025-11-03 07:12:47', NULL, '2025-11-03 07:12:47', '2025-11-03 07:12:47'),
+(88, 'TXN1762154042228', 4, 'PRD-006', 'out', 2, 'Sale deduction', '2025-11-03 07:14:02', 'System', '2025-11-03 07:14:02', '2025-11-03 07:14:02'),
+(89, 'TRX-1762154050547-23', 4, 'PRD-006', 'out', 0, 'Stock update through admin interface', '2025-11-03 07:14:10', NULL, '2025-11-03 07:14:10', '2025-11-03 07:14:10'),
+(90, 'TRX-1762154125458-44', 4, 'PRD-006', 'out', 0, 'Stock update through admin interface', '2025-11-03 07:15:25', NULL, '2025-11-03 07:15:25', '2025-11-03 07:15:25');
 
 -- --------------------------------------------------------
 
@@ -279,9 +290,14 @@ CREATE TABLE `sales` (
   `id` int(11) NOT NULL,
   `sale_number` varchar(50) NOT NULL,
   `customer_name` varchar(100) DEFAULT NULL,
+  `customer_last_name` varchar(100) DEFAULT NULL,
+  `customer_first_name` varchar(100) DEFAULT NULL,
+  `customer_middle_name` varchar(100) DEFAULT NULL,
   `contact` varchar(50) DEFAULT NULL,
   `payment` varchar(50) NOT NULL,
+  `delivery_type` enum('In-store','Company Delivery') NOT NULL DEFAULT 'In-store',
   `payment_status` enum('Paid','Unpaid') NOT NULL DEFAULT 'Unpaid',
+  `payment_reference` varchar(64) DEFAULT NULL,
   `total` decimal(10,2) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `status` enum('Pending','Processing','Completed','Cancelled') DEFAULT 'Pending',
@@ -292,16 +308,18 @@ CREATE TABLE `sales` (
 -- Dumping data for table `sales`
 --
 
-INSERT INTO `sales` (`id`, `sale_number`, `customer_name`, `contact`, `payment`, `payment_status`, `total`, `created_at`, `status`, `address`) VALUES
-(1, 'SL251013001', 'doggy', '09090909009', 'GCash', 'Paid', 4800.00, '2025-10-13 14:32:48', 'Completed', NULL),
-(2, 'SL251013002', 'gagsti', '121313113213223', 'Cash', 'Paid', 11480.00, '2025-10-13 14:33:23', 'Cancelled', NULL),
-(3, 'SL251015001', 'clarence', '09174205498', 'Cash', 'Paid', 6100.00, '2025-10-14 17:46:06', 'Completed', NULL),
-(4, 'SL251015002', 'testing_oct15', '09090909090', 'Cash', 'Paid', 17800.00, '2025-10-14 19:24:58', 'Completed', NULL),
-(5, 'SL251015003', 'asd', 'asd', 'GCash', 'Paid', 1600.00, '2025-10-14 19:47:21', 'Completed', NULL),
-(6, 'SL251015004', 'Renz', '09521784542', 'Cash', 'Paid', 21100.00, '2025-10-14 19:50:06', 'Completed', NULL),
-(7, 'SL251015005', 'Renztesting', '1231231321', 'Cash', 'Paid', 50000.00, '2025-10-14 20:23:22', 'Completed', NULL),
-(8, 'SL251015006', 'renz_test2', '12221231321', 'Cash', 'Paid', 51600.00, '2025-10-14 20:32:53', 'Completed', NULL),
-(9, 'SL251021001', 'asd', 'asd', 'Cash', 'Paid', 100000.00, '2025-10-20 16:11:48', 'Completed', 'asdas, Pampanga');
+INSERT INTO `sales` (`id`, `sale_number`, `customer_name`, `customer_last_name`, `customer_first_name`, `customer_middle_name`, `contact`, `payment`, `delivery_type`, `payment_status`, `payment_reference`, `total`, `created_at`, `status`, `address`) VALUES
+(1, 'SL251013001', 'doggy', 'doggy', 'doggy', NULL, '09090909009', 'GCash', 'In-store', 'Paid', NULL, 4800.00, '2025-10-13 14:32:48', 'Completed', NULL),
+(2, 'SL251013002', 'gagsti', 'gagsti', 'gagsti', NULL, '121313113213223', 'Cash', 'In-store', 'Paid', NULL, 11480.00, '2025-10-13 14:33:23', 'Cancelled', NULL),
+(3, 'SL251015001', 'clarence', 'clarence', 'clarence', NULL, '09174205498', 'Cash', 'In-store', 'Paid', NULL, 6100.00, '2025-10-14 17:46:06', 'Completed', NULL),
+(4, 'SL251015002', 'testing_oct15', 'testing_oct15', 'testing_oct15', NULL, '09090909090', 'Cash', 'In-store', 'Paid', NULL, 17800.00, '2025-10-14 19:24:58', 'Completed', NULL),
+(5, 'SL251015003', 'asd', 'asd', 'asd', NULL, 'asd', 'GCash', 'In-store', 'Paid', NULL, 1600.00, '2025-10-14 19:47:21', 'Completed', NULL),
+(6, 'SL251015004', 'Renz', 'Renz', 'Renz', NULL, '09521784542', 'Cash', 'In-store', 'Paid', NULL, 21100.00, '2025-10-14 19:50:06', 'Completed', NULL),
+(7, 'SL251015005', 'Renztesting', 'Renztesting', 'Renztesting', NULL, '1231231321', 'Cash', 'In-store', 'Paid', NULL, 50000.00, '2025-10-14 20:23:22', 'Completed', NULL),
+(8, 'SL251015006', 'renz_test2', 'renz_test2', 'renz_test2', NULL, '12221231321', 'Cash', 'In-store', 'Paid', NULL, 51600.00, '2025-10-14 20:32:53', 'Completed', NULL),
+(9, 'SL251021001', 'asd', 'asd', 'asd', NULL, 'asd', 'Cash', 'In-store', 'Paid', NULL, 100000.00, '2025-10-20 16:11:48', 'Completed', 'asdas, Pampanga'),
+(10, 'SL251103001', 'ka haha gago', 'gago', 'ka', NULL, '09009', 'Cash', 'In-store', 'Paid', NULL, 50000.00, '2025-11-03 07:10:33', 'Pending', 'asdasdsa, Manila'),
+(11, 'SL251103002', 'aa aa aa', NULL, NULL, NULL, '123', 'Cash', 'In-store', 'Paid', NULL, 3200.00, '2025-11-03 07:14:02', 'Pending', 'asdsa, Manila');
 
 -- --------------------------------------------------------
 
@@ -344,7 +362,9 @@ INSERT INTO `sale_items` (`id`, `sale_id`, `product_id`, `product_name`, `brand`
 (17, 7, 'P008', 'Turbocharger', 'Akebono', 50000.00, 1, 50000.00),
 (18, 8, 'P008', 'Turbocharger', 'Akebono', 50000.00, 1, 50000.00),
 (19, 8, 'PRD-006', 'GHAHAHAHA', 'Akebono', 1600.00, 1, 1600.00),
-(20, 9, 'P008', 'Turbocharger', 'Akebono', 50000.00, 2, 100000.00);
+(20, 9, 'P008', 'Turbocharger', 'Akebono', 50000.00, 2, 100000.00),
+(21, 10, 'P008', 'Turbocharger', 'Akebono', 50000.00, 1, 50000.00),
+(22, 11, 'PRD-006', 'GHAHAHAHA', 'Akebono', 1600.00, 2, 3200.00);
 
 -- --------------------------------------------------------
 
@@ -517,7 +537,7 @@ ALTER TABLE `inventory`
 -- AUTO_INCREMENT for table `inventory_transactions`
 --
 ALTER TABLE `inventory_transactions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=80;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=91;
 
 --
 -- AUTO_INCREMENT for table `products`
@@ -529,13 +549,13 @@ ALTER TABLE `products`
 -- AUTO_INCREMENT for table `sales`
 --
 ALTER TABLE `sales`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
 -- AUTO_INCREMENT for table `sale_items`
 --
 ALTER TABLE `sale_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=23;
 
 --
 -- AUTO_INCREMENT for table `suppliers`

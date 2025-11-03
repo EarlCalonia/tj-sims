@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../../components/admin/Navbar';
-import { BsSearch, BsPlus, BsPencil, BsTrash, BsBox, BsTags, BsTruck } from 'react-icons/bs';
+import { BsSearch, BsPlus, BsPencil, BsBox, BsTags, BsTruck } from 'react-icons/bs';
 import '../../styles/InventoryPage.css';
 import { productAPI } from '../../utils/api';
 import { inventoryAPI } from '../../utils/inventoryApi';
@@ -307,7 +307,7 @@ const InventoryPage = () => {
                         <span className="category-badge">{product.category}</span>
                       </td>
                       <td className="quantity-cell">
-                        {product.stock}
+                        {product.stock || 0}
                       </td>
                       <td>
                         <span className={`stock-status-badge ${product.stock > 10 ? 'in-stock' : product.stock > 0 ? 'low-stock' : 'out-of-stock'}`}>
@@ -322,13 +322,6 @@ const InventoryPage = () => {
                             title="Edit Product"
                           >
                             <BsPencil />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteProduct(product.id)}
-                            className="delete-btn"
-                            title="Delete Product"
-                          >
-                            <BsTrash />
                           </button>
                         </div>
                       </td>
