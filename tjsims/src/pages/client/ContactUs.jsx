@@ -10,11 +10,11 @@ const ContactUs = () => {
       <main
         style={{
           flex: '1 0 auto',
+          width: '100%',
           backgroundImage: `url(${bg})`,
           backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-          width: '100%'
+          backgroundPosition: 'center center',
+          backgroundRepeat: 'no-repeat'
         }}
       />
       <Footer />

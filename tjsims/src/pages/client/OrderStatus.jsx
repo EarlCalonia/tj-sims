@@ -70,10 +70,10 @@ const OrderStatus = () => {
   };
 
   return (
-    <div className="order-status-page">
+    <div className="order-status-page" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Navbar />
 
-      <main style={{ maxWidth: 900, margin: '0 auto', padding: '30px 16px' }}>
+      <main style={{ maxWidth: 900, margin: '0 auto', padding: '30px 16px', flex: '1 0 auto', width: '100%' }}>
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
           <h1 style={{ margin: 0, color: '#0f2544', letterSpacing: 1 }}>CHECK ORDER STATUS</h1>
           <p style={{ color: '#5a6c7d' }}>Enter your Order ID to view current status and payment information</p>
