@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../../components/admin/Navbar';
-import { BsSearch, BsPlus, BsPencil, BsTrash, BsBox, BsTags, BsTruck } from 'react-icons/bs';
+import { BsSearch, BsPlus, BsPencil, BsBox, BsTags, BsTruck } from 'react-icons/bs';
 import '../../styles/InventoryPage.css';
 import { productAPI } from '../../utils/api';
 import { inventoryAPI } from '../../utils/inventoryApi';
@@ -127,7 +127,11 @@ const InventoryPage = () => {
       ...product,
       quantityToAdd: 0,
       newTotal: product.stock,
-      reorderPoint: product.reorderPoint || 10 // Default reorder point
+      reorderPoint: product.reorderPoint || 10,
+      transactionDate: new Date().toISOString().slice(0,16),
+      personName: localStorage.getItem('username') || 'Admin',
+      serial: '',
+      supplierSource: ''
     });
     setIsModalOpen(true);
   };
@@ -149,7 +153,10 @@ const InventoryPage = () => {
 
       const response = await inventoryAPI.updateStock(selectedProduct.product_id, {
         quantityToAdd: selectedProduct.quantityToAdd,
-        reorderPoint: selectedProduct.reorderPoint
+        reorderPoint: selectedProduct.reorderPoint,
+        notes: `Serial: ${selectedProduct.serial || '-'} | Supplier: ${selectedProduct.supplierSource || '-'}`,
+        createdBy: selectedProduct.personName,
+        transactionDate: selectedProduct.transactionDate
       });
 
       if (response.success) {
@@ -179,6 +186,11 @@ const InventoryPage = () => {
       setSelectedProduct({
         ...selectedProduct,
         [name]: parseInt(value) || 0
+      });
+    } else if (name === 'transactionDate' || name === 'personName' || name === 'serial' || name === 'supplierSource') {
+      setSelectedProduct({
+        ...selectedProduct,
+        [name]: value
       });
     }
   };
@@ -307,7 +319,7 @@ const InventoryPage = () => {
                         <span className="category-badge">{product.category}</span>
                       </td>
                       <td className="quantity-cell">
-                        {product.stock}
+                        {product.stock || 0}
                       </td>
                       <td>
                         <span className={`stock-status-badge ${product.stock > 10 ? 'in-stock' : product.stock > 0 ? 'low-stock' : 'out-of-stock'}`}>
@@ -322,13 +334,6 @@ const InventoryPage = () => {
                             title="Edit Product"
                           >
                             <BsPencil />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteProduct(product.id)}
-                            className="delete-btn"
-                            title="Delete Product"
-                          >
-                            <BsTrash />
                           </button>
                         </div>
                       </td>
@@ -451,6 +456,55 @@ const InventoryPage = () => {
                       min="0"
                       className="form-input"
                       placeholder="Alert threshold"
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Transaction Date & Time</label>
+                    <input
+                      type="datetime-local"
+                      name="transactionDate"
+                      value={selectedProduct?.transactionDate || ''}
+                      onChange={handleInputChange}
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Person</label>
+                    <input
+                      type="text"
+                      name="personName"
+                      value={selectedProduct?.personName || ''}
+                      onChange={handleInputChange}
+                      className="form-input"
+                      placeholder="Enter person"
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Serial Number</label>
+                    <input
+                      type="text"
+                      name="serial"
+                      value={selectedProduct?.serial || ''}
+                      onChange={handleInputChange}
+                      className="form-input"
+                      placeholder="Enter serial"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Supplier / Source</label>
+                    <input
+                      type="text"
+                      name="supplierSource"
+                      value={selectedProduct?.supplierSource || ''}
+                      onChange={handleInputChange}
+                      className="form-input"
+                      placeholder="Enter supplier or source"
                     />
                   </div>
                 </div>

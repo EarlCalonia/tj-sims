@@ -2,10 +2,8 @@ import React, { useMemo, useState } from 'react';
 import Navbar from '../../components/client/Navbar';
 import Footer from '../../components/client/Footer';
 import { salesAPI } from '../../utils/api';
-import jsPDF from 'jspdf';
 
 const peso = (n) => `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const pesoPDF = (n) => `PHP ${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const Badge = ({ children, color }) => (
   <span style={{
@@ -71,71 +69,11 @@ const OrderStatus = () => {
     }
   };
 
-  const exportPDF = () => {
-    if (!order?.header) return;
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(18);
-    doc.text('ORDER INFORMATION', pageWidth / 2, 20, { align: 'center' });
-
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Order ID: ${order.header.sale_number}`, pageWidth / 2, 28, { align: 'center' });
-
-    let y = 40;
-    doc.setFontSize(10);
-    const customerName = String(
-      order.header.customer_name ||
-      order.header.customerName ||
-      order.header.customer ||
-      order.header.name ||
-      ''
-    ).trim();
-    if (customerName) { doc.text(`Customer Name: ${customerName}`, 20, y); y += 7; }
-    doc.text(`Order Status: ${order.header.status}`, 20, y); y += 7;
-    doc.text(`Payment Status: ${order.header.payment_status}`, 20, y); y += 7;
-    doc.text(`Shipping Option: ${order.header.payment}`, 20, y); y += 10;
-
-    // Table headers
-    doc.setFont('helvetica', 'bold');
-    doc.text('Product Name', 20, y);
-    doc.text('Brand', 75, y);
-    doc.text('Qty', 115, y);
-    doc.text('Unit Price', 140, y);
-    doc.text('Total', 190, y, { align: 'right' });
-    y += 6;
-    doc.line(18, y, pageWidth - 18, y);
-    y += 4;
-
-    doc.setFont('helvetica', 'normal');
-    order.items.forEach(it => {
-      if (y > 260) { doc.addPage(); y = 20; }
-      const unit = Number(it.price || it.unitPrice || 0);
-      const total = Number(it.subtotal || it.totalPrice || unit * (it.quantity || 0));
-      const name = String(it.product_name || it.productName || '').slice(0, 35);
-      doc.text(name, 20, y);
-      doc.text(String(it.brand || ''), 75, y);
-      doc.text(String(it.quantity || 0), 115, y);
-      doc.text(pesoPDF(unit), 140, y);
-      doc.text(pesoPDF(total), 190, y, { align: 'right' });
-      y += 6;
-    });
-
-    y += 4; doc.line(18, y, pageWidth - 18, y); y += 8;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Grand Total:', 140, y);
-    doc.text(pesoPDF(grandTotal), 190, y, { align: 'right' });
-
-    doc.save(`${order.header.sale_number}.pdf`);
-  };
-
   return (
-    <div className="order-status-page">
+    <div className="order-status-page" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Navbar />
 
-      <main style={{ maxWidth: 900, margin: '0 auto', padding: '30px 16px' }}>
+      <main style={{ maxWidth: 900, margin: '0 auto', padding: '30px 16px', flex: '1 0 auto', width: '100%' }}>
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
           <h1 style={{ margin: 0, color: '#0f2544', letterSpacing: 1 }}>CHECK ORDER STATUS</h1>
           <p style={{ color: '#5a6c7d' }}>Enter your Order ID to view current status and payment information</p>
@@ -171,8 +109,6 @@ const OrderStatus = () => {
               <h2 style={{ margin: 0, color: '#0f2544' }}>ORDER INFORMATION</h2>
               <div style={{ color: '#0b63c5' }}>Order ID: <strong>{order.header.sale_number}</strong></div>
             </div>
-
-            <button onClick={exportPDF} style={{ position: 'absolute', right: 16, top: 16, background: '#0b63c5', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontWeight: 700 }}>Export as PDF</button>
 
             <div style={{ display: 'grid', gap: 10, marginTop: 12, marginBottom: 16 }}>
               {(() => {

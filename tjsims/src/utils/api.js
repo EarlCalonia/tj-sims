@@ -418,8 +418,18 @@ export const dashboardAPI = {
 
   // Get sales aggregated by period
   // period: 'week' | 'month' | 'year'
-  getDailySales: async (period = 'week') => {
-    const url = `${API_BASE_URL}/dashboard/daily-sales?period=${encodeURIComponent(period)}`;
+  getDailySales: async (params = 'week') => {
+    const search = new URLSearchParams();
+    if (typeof params === 'string') {
+      search.append('period', params);
+    } else if (params && typeof params === 'object') {
+      if (params.period) search.append('period', params.period);
+      if (params.start_date) search.append('start_date', params.start_date);
+      if (params.end_date) search.append('end_date', params.end_date);
+      if (params.granularity) search.append('granularity', params.granularity);
+    }
+    const qs = search.toString();
+    const url = `${API_BASE_URL}/dashboard/daily-sales${qs ? `?${qs}` : ''}`;
     const response = await fetch(url, {
       credentials: 'include'
     });

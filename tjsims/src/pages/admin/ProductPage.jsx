@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Navbar from '../../components/admin/Navbar';
 import { BsSearch, BsPlus, BsPencil } from 'react-icons/bs';
 import '../../styles/ProductPage.css';
-import { productAPI } from '../../utils/api.js';
+import { productAPI, authAPI } from '../../utils/api.js';
 
 const ProductPage = () => {
   // State for products
@@ -144,7 +144,7 @@ const ProductPage = () => {
   // Handle edit product
   const handleEditProduct = (product) => {
     setIsAddMode(false);
-    setSelectedProduct(product);
+    setSelectedProduct({ ...product, originalDescription: product.description || '' });
     setIsModalOpen(true);
   };
 
@@ -174,9 +174,27 @@ const ProductPage = () => {
           await loadProducts(); // Refresh the products list
         }
       } else {
-        const response = await productAPI.updateProduct(selectedProduct.id, formData);
-        if (response.success) {
-          await loadProducts(); // Refresh the products list
+        const descChanged = (selectedProduct.description || '') !== (selectedProduct.originalDescription || '');
+        if (descChanged) {
+          const newFd = new FormData();
+          newFd.append('name', selectedProduct.name);
+          newFd.append('brand', selectedProduct.brand);
+          newFd.append('category', selectedProduct.category);
+          newFd.append('price', selectedProduct.price);
+          newFd.append('status', selectedProduct.status);
+          newFd.append('description', selectedProduct.description);
+          if (selectedProduct.image && selectedProduct.image instanceof File) {
+            newFd.append('image', selectedProduct.image);
+          }
+          const response = await productAPI.createProduct(newFd);
+          if (response.success) {
+            await loadProducts();
+          }
+        } else {
+          const response = await productAPI.updateProduct(selectedProduct.id, formData);
+          if (response.success) {
+            await loadProducts(); // Refresh the products list
+          }
         }
       }
       setIsModalOpen(false);
@@ -204,6 +222,21 @@ const ProductPage = () => {
       ...selectedProduct,
       image: file
     });
+  };
+
+  const requestImageChange = async () => {
+    try {
+      const savedEmail = localStorage.getItem('userEmail') || '';
+      const email = savedEmail || window.prompt('Enter your email for verification:') || '';
+      if (!email) return;
+      const pwd = window.prompt('Enter your password to change the product image:');
+      if (!pwd) return;
+      await authAPI.login(email, pwd);
+      const input = document.getElementById('product-image');
+      if (input) input.click();
+    } catch (err) {
+      alert('Authentication failed. Image change is not allowed.');
+    }
   };
 
   return (
@@ -507,9 +540,10 @@ const ProductPage = () => {
                       onChange={handleFileChange}
                       className="form-file-input"
                       accept="image/*"
+                      style={{ display: 'none' }}
                     />
-                    <label htmlFor="product-image" className="upload-label">
-                      <button type="button" className="upload-btn" onClick={() => document.getElementById('product-image').click()}>
+                    <label className="upload-label">
+                      <button type="button" className="upload-btn" onClick={requestImageChange}>
                         {selectedProduct?.image ? 'Change Image' : 'Upload Image'}
                       </button>
                       <br></br>

@@ -3,18 +3,23 @@ import { BsCartPlus, BsTrash, BsSearch } from 'react-icons/bs';
 import Navbar from '../../components/admin/Navbar';
 import '../../styles/SalesPage.css';
 import { productAPI, salesAPI, inventoryAPI } from '../../utils/api';
+import { generateSaleReceipt } from '../../utils/pdfGenerator';
 
 const SalesPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState([]);
-  const [customerName, setCustomerName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [middleName, setMiddleName] = useState('');
   const [contactNumber, setContactNumber] = useState('');
   const [paymentOption, setPaymentOption] = useState('Cash');
   const [shippingOption, setShippingOption] = useState('In-Store Pickup');
-  const [orderStatus, setOrderStatus] = useState('Processing');
-  const [paymentStatus, setPaymentStatus] = useState('Unpaid');
+  const [orderStatus, setOrderStatus] = useState('Pending');
+  const [paymentStatus, setPaymentStatus] = useState('Paid');
   const [address, setAddress] = useState('Manila');
   const [addressDetails, setAddressDetails] = useState('');
+  const [tenderedAmount, setTenderedAmount] = useState('');
+  const [gcashRef, setGcashRef] = useState('');
 
   // New state for API integration
   const [products, setProducts] = useState([]);
@@ -256,10 +261,14 @@ const SalesPage = () => {
   };
 
   const clearCustomerInfo = () => {
-    setCustomerName('');
+    setLastName('');
+    setFirstName('');
+    setMiddleName('');
     setContactNumber('');
     setAddress('Manila');
     setAddressDetails('');
+    setTenderedAmount('');
+    setGcashRef('');
   };
 
   const confirmSale = async () => {
@@ -267,16 +276,28 @@ const SalesPage = () => {
       alert('Please add items to cart before confirming sale');
       return;
     }
-    if (!customerName.trim()) {
-      alert('Please enter customer name');
+    const fullName = `${firstName} ${middleName} ${lastName}`.replace(/\s+/g, ' ').trim();
+    if (!lastName.trim() || !firstName.trim()) {
+      alert('Please enter customer last and first name');
+      return;
+    }
+    const total = getCartTotal();
+    const payAmt = parseFloat(tenderedAmount);
+    if (Number.isNaN(payAmt) || payAmt < total) {
+      alert('Customer Payment Amount must be a valid decimal and at least equal to the cart total.');
       return;
     }
 
     try {
       setSubmitting(true);
 
+      // Enforce shipping option rule
+      if (getCartTotal() < 5000 && shippingOption !== 'In-Store Pickup') {
+        setShippingOption('In-Store Pickup');
+      }
+
       const saleData = {
-        customer_name: customerName,
+        customer_name: fullName,
         contact: contactNumber,
         payment: paymentOption,
         payment_status: paymentStatus,
@@ -293,8 +314,28 @@ const SalesPage = () => {
       };
 
       const result = await salesAPI.createSale(saleData);
+      const saleNo = result?.data?.sale_number || 'N/A';
 
-      alert(`Sale confirmed successfully!\nSale Number: ${result.saleNumber}\nTotal: ₱${getCartTotal().toLocaleString()}\nCustomer: ${customerName}`);
+      // Auto-generate and download receipt
+      try {
+        const doc = await generateSaleReceipt({
+          saleNumber: saleNo,
+          customerName: fullName,
+          items: cart,
+          totalAmount: getCartTotal(),
+          paymentMethod: paymentOption,
+          tenderedAmount: parseFloat(tenderedAmount || 0),
+          changeAmount: Math.max(0, parseFloat(tenderedAmount || 0) - getCartTotal()),
+          address: addressDetails ? `${addressDetails}, ${address}` : address,
+          shippingOption,
+          createdAt: new Date()
+        });
+        doc.save(`${saleNo}_receipt.pdf`);
+      } catch (e) {
+        console.error('Failed to generate receipt:', e);
+      }
+
+      alert(`Sale confirmed successfully!\nSale Number: ${saleNo}\nTotal: ₱${getCartTotal().toLocaleString()}\nCustomer: ${fullName}`);
       clearCart();
       clearCustomerInfo();
 
@@ -378,7 +419,7 @@ const SalesPage = () => {
                             <div className="quantity-controls">
                               <button
                                 onClick={() => handleQuantityChange(product.product_id, -1)}
-                                disabled={(quantities[product.product_id] || 1) <= 1}
+                                disabled={product.stock === 0 || (quantities[product.product_id] || 1) <= 1}
                                 className="quantity-btn"
                               >
                                 -
@@ -388,6 +429,7 @@ const SalesPage = () => {
                               </span>
                               <button
                                 onClick={() => handleQuantityChange(product.product_id, 1)}
+                                disabled={product.stock === 0}
                                 className="quantity-btn"
                               >
                                 +
@@ -477,12 +519,32 @@ const SalesPage = () => {
                 <h2>Customer Information</h2>
                 <div className="customer-info">
                   <div className="info-row">
-                    <label>Customer Name:</label>
+                    <label>Last Name:</label>
                     <input
                       type="text"
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="Enter customer name"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Enter last name"
+                      className="info-input"
+                    />
+                  </div>
+                  <div className="info-row">
+                    <label>First Name:</label>
+                    <input
+                      type="text"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="Enter first name"
+                      className="info-input"
+                    />
+                  </div>
+                  <div className="info-row">
+                    <label>Middle Name:</label>
+                    <input
+                      type="text"
+                      value={middleName}
+                      onChange={(e) => setMiddleName(e.target.value)}
+                      placeholder="Enter middle name"
                       className="info-input"
                     />
                   </div>
@@ -548,53 +610,70 @@ const SalesPage = () => {
                       className="form-select"
                     >
                       <option value="In-Store Pickup">In-Store Pickup</option>
-                      <option value="Company Delivery (COD)">Company Delivery (COD)</option>
-                      <option value="Company Delivery (GCash)">Company Delivery (GCash)</option>
+                      {/* Enable company delivery only if total >= 5000 */}
+                      {getCartTotal() >= 5000 && (
+                        <>
+                          <option value="Company Delivery (COD)">Company Delivery (COD)</option>
+                          <option value="Company Delivery (GCash)">Company Delivery (GCash)</option>
+                        </>
+                      )}
                     </select>
                   </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Customer Payment Amount</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={tenderedAmount}
+                      onChange={(e) => setTenderedAmount(e.target.value)}
+                      className="form-input"
+                      placeholder={paymentOption === 'Cash' ? 'Cash tendered' : 'Amount paid'}
+                    />
+                  </div>
+                  {paymentOption === 'GCash' && (
+                    <div className="form-group">
+                      <label>GCash Reference Number</label>
+                      <input
+                        type="text"
+                        value={gcashRef}
+                        onChange={(e) => setGcashRef(e.target.value)}
+                        className="form-input"
+                        placeholder="Enter GCash reference"
+                      />
+                    </div>
+                  )}
+                  {paymentOption === 'Cash' && (
+                    <div className="form-group">
+                      <label>Change</label>
+                      <input
+                        type="text"
+                        readOnly
+                        value={`₱${Math.max(0, (parseFloat(tenderedAmount || 0) - getCartTotal())).toLocaleString()}`}
+                        className="form-input readonly"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Order Status Section */}
-              <div className="order-status-section">
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Order Status</label>
-                    <select
-                      value={orderStatus}
-                      onChange={(e) => setOrderStatus(e.target.value)}
-                      className="form-select"
-                    >
-                      <option value="Processing">Processing</option>
-                      <option value="Confirmed">Confirmed</option>
-                      <option value="Shipped">Shipped</option>
-                      <option value="Delivered">Delivered</option>
-                      <option value="Cancelled">Cancelled</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>Payment Status</label>
-                    <select
-                      value={paymentStatus}
-                      onChange={(e) => setPaymentStatus(e.target.value)}
-                      className="form-select"
-                    >
-                      <option value="Pending">Pending</option>
-                      <option value="Paid">Paid</option>
-                      <option value="Failed">Failed</option>
-                      <option value="Refunded">Refunded</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
 
           {/* Action Buttons - Right Side */}
           <div className="action-buttons-right">
+            {(() => {
+              const total = getCartTotal();
+              const payAmt = parseFloat(tenderedAmount);
+              var _isPaymentValid = !Number.isNaN(payAmt) && payAmt >= total;
+              window.__sales_isPaymentValid = _isPaymentValid; // minimal debug aid
+              return null;
+            })()}
             <button
               onClick={confirmSale}
-              disabled={submitting || cart.length === 0}
+              disabled={submitting || cart.length === 0 || Number.isNaN(parseFloat(tenderedAmount)) || parseFloat(tenderedAmount) < getCartTotal()}
               className="confirm-btn"
             >
               {submitting ? 'Processing...' : 'Confirm Sale'}

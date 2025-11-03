@@ -111,48 +111,102 @@ export class DashboardController {
     try {
       const pool = getPool();
 
-      const { period = 'week' } = req.query;
+      const { period = 'week', start_date, end_date, granularity } = req.query;
 
       let query = '';
-      if (period === 'year') {
-        // Aggregate by month for the last 12 months
-        query = `
-          SELECT DATE(DATE_FORMAT(created_at, '%Y-%m-01')) as date,
-                 COALESCE(SUM(total), 0) as total,
-                 COUNT(*) as orders
-          FROM sales
-          WHERE created_at >= DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 11 MONTH)
-            AND (status IS NULL OR status <> 'Cancelled')
-          GROUP BY YEAR(created_at), MONTH(created_at)
-          ORDER BY date ASC
-        `;
-      } else if (period === 'month') {
-        // Aggregate by day for last 30 days
-        query = `
-          SELECT DATE(created_at) as date,
-                 COALESCE(SUM(total), 0) as total,
-                 COUNT(*) as orders
-          FROM sales
-          WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-            AND (status IS NULL OR status <> 'Cancelled')
-          GROUP BY DATE(created_at)
-          ORDER BY date ASC
-        `;
+      let params = [];
+
+      // If an explicit date range is provided, prioritize it
+      if (start_date || end_date) {
+        const groupBy = (granularity || 'day').toLowerCase();
+        if (groupBy === 'month') {
+          query = `
+            SELECT DATE(DATE_FORMAT(created_at, '%Y-%m-01')) as date,
+                   COALESCE(SUM(total), 0) as total,
+                   COUNT(*) as orders
+            FROM sales
+            WHERE (status IS NULL OR status <> 'Cancelled')
+          `;
+        } else if (groupBy === 'week') {
+          // Use Monday as start of week
+          query = `
+            SELECT DATE(DATE_SUB(DATE(created_at), INTERVAL WEEKDAY(created_at) DAY)) as date,
+                   COALESCE(SUM(total), 0) as total,
+                   COUNT(*) as orders
+            FROM sales
+            WHERE (status IS NULL OR status <> 'Cancelled')
+          `;
+        } else {
+          // Default: group by day
+          query = `
+            SELECT DATE(created_at) as date,
+                   COALESCE(SUM(total), 0) as total,
+                   COUNT(*) as orders
+            FROM sales
+            WHERE (status IS NULL OR status <> 'Cancelled')
+          `;
+        }
+
+        if (start_date) {
+          query += ' AND DATE(created_at) >= ?';
+          params.push(start_date);
+        }
+        if (end_date) {
+          query += ' AND DATE(created_at) <= ?';
+          params.push(end_date);
+        }
+
+        if (groupBy === 'month') {
+          query += ' GROUP BY YEAR(created_at), MONTH(created_at)';
+        } else if (groupBy === 'week') {
+          query += ' GROUP BY YEAR(created_at), WEEK(created_at, 3)';
+        } else {
+          query += ' GROUP BY DATE(created_at)';
+        }
+        query += ' ORDER BY date ASC';
+
       } else {
-        // Default week: last 7 days by day
-        query = `
-          SELECT DATE(created_at) as date,
-                 COALESCE(SUM(total), 0) as total,
-                 COUNT(*) as orders
-          FROM sales
-          WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-            AND (status IS NULL OR status <> 'Cancelled')
-          GROUP BY DATE(created_at)
-          ORDER BY date ASC
-        `;
+        // Backward compatible: period-based aggregation
+        if (period === 'year') {
+          // Aggregate by month for the last 12 months
+          query = `
+            SELECT DATE(DATE_FORMAT(created_at, '%Y-%m-01')) as date,
+                   COALESCE(SUM(total), 0) as total,
+                   COUNT(*) as orders
+            FROM sales
+            WHERE created_at >= DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 11 MONTH)
+              AND (status IS NULL OR status <> 'Cancelled')
+            GROUP BY YEAR(created_at), MONTH(created_at)
+            ORDER BY date ASC
+          `;
+        } else if (period === 'month') {
+          // Aggregate by day for last 30 days
+          query = `
+            SELECT DATE(created_at) as date,
+                   COALESCE(SUM(total), 0) as total,
+                   COUNT(*) as orders
+            FROM sales
+            WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+              AND (status IS NULL OR status <> 'Cancelled')
+            GROUP BY DATE(created_at)
+            ORDER BY date ASC
+          `;
+        } else {
+          // Default week: last 7 days by day
+          query = `
+            SELECT DATE(created_at) as date,
+                   COALESCE(SUM(total), 0) as total,
+                   COUNT(*) as orders
+            FROM sales
+            WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+              AND (status IS NULL OR status <> 'Cancelled')
+            GROUP BY DATE(created_at)
+            ORDER BY date ASC
+          `;
+        }
       }
 
-      const [dailySales] = await pool.execute(query);
+      const [dailySales] = await pool.execute(query, params);
 
       res.json({
         success: true,
