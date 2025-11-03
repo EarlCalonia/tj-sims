@@ -129,9 +129,10 @@ const ReportsPage = () => {
         doc = await generateSalesReportPDF(allSalesResult.sales, exportStartDate, exportEndDate, adminName);
         doc.save(`Sales_Report_${exportStartDate}_to_${exportEndDate}.pdf`);
       } else {
-        // For inventory, we need to fetch all inventory data
+        // For inventory, fetch all inventory data honoring the current stock_status filter
         const allInventoryResult = await reportsAPI.getInventoryReport({
-          limit: 1000 // Get all records for export
+          limit: 10000,
+          ...(stockStatus && stockStatus !== 'All Status' ? { stock_status: stockStatus } : {})
         });
         doc = await generateInventoryReportPDF(allInventoryResult.inventory, exportStartDate, exportEndDate, adminName);
         doc.save(`Inventory_Report_${exportStartDate}_to_${exportEndDate}.pdf`);
