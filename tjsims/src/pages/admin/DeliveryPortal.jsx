@@ -24,7 +24,7 @@ const DeliveryPortal = () => {
       .then((list) => {
         const filtered = (list || []).filter(s => {
           const addr = (s.address || '').toLowerCase();
-          return addr.includes('pampanga') || addr.includes('bulacan');
+          return addr.includes('pampanga') || addr.includes('bulacan') || addr.includes('manila');
         });
         const mapped = filtered.map(s => ({
           id: s.sale_number,

@@ -14,6 +14,8 @@ const ReportsPage = () => {
   const [itemsPerPage] = useState(5);
   const [showPDFModal, setShowPDFModal] = useState(false);
   const [adminName] = useState('Admin User'); // You can get this from authentication context
+  const [rangeLabel, setRangeLabel] = useState('Daily'); // Sales report granularity (UI only)
+  const [stockStatus, setStockStatus] = useState('All Status'); // Inventory report filter
 
   // API state
   const [salesData, setSalesData] = useState([]);
@@ -25,7 +27,7 @@ const ReportsPage = () => {
   // Fetch data from API
   useEffect(() => {
     fetchReportData();
-  }, [activeTab, startDate, endDate, currentPage]);
+  }, [activeTab, startDate, endDate, currentPage, stockStatus]);
 
   const fetchReportData = async () => {
     try {
@@ -44,7 +46,7 @@ const ReportsPage = () => {
         setSalesData(result.sales || []);
         setPagination(result.pagination || {});
       } else {
-        const result = await reportsAPI.getInventoryReport(filters);
+        const result = await reportsAPI.getInventoryReport({ ...filters, ...(stockStatus && stockStatus !== 'All Status' ? { stock_status: stockStatus } : {}) });
         setInventoryData(result.inventory || []);
         setPagination(result.pagination || {});
       }
@@ -102,7 +104,7 @@ const ReportsPage = () => {
       if (activeTab === 'sales') {
         await reportsAPI.exportSalesReportCSV(filters);
       } else {
-        await reportsAPI.exportInventoryReportCSV(filters);
+        await reportsAPI.exportInventoryReportCSV({ ...filters, ...(stockStatus && stockStatus !== 'All Status' ? { stock_status: stockStatus } : {}) });
       }
     } catch (error) {
       console.error('CSV export failed:', error);
@@ -127,9 +129,10 @@ const ReportsPage = () => {
         doc = await generateSalesReportPDF(allSalesResult.sales, exportStartDate, exportEndDate, adminName);
         doc.save(`Sales_Report_${exportStartDate}_to_${exportEndDate}.pdf`);
       } else {
-        // For inventory, we need to fetch all inventory data
+        // For inventory, fetch all inventory data honoring the current stock_status filter
         const allInventoryResult = await reportsAPI.getInventoryReport({
-          limit: 1000 // Get all records for export
+          limit: 10000,
+          ...(stockStatus && stockStatus !== 'All Status' ? { stock_status: stockStatus } : {})
         });
         doc = await generateInventoryReportPDF(allInventoryResult.inventory, exportStartDate, exportEndDate, adminName);
         doc.save(`Inventory_Report_${exportStartDate}_to_${exportEndDate}.pdf`);
@@ -197,6 +200,28 @@ const ReportsPage = () => {
                     className="date-input"
                   />
                 </div>
+                {activeTab === 'sales' && (
+                  <div className="date-input-group">
+                    <label htmlFor="range-label">Range Label</label>
+                    <select id="range-label" value={rangeLabel} onChange={(e)=>setRangeLabel(e.target.value)} className="date-input">
+                      <option>Daily</option>
+                      <option>Weekly</option>
+                      <option>Monthly</option>
+                    </select>
+                  </div>
+                )}
+                {activeTab === 'inventory' && (
+                  <div className="date-input-group">
+                    <label htmlFor="stock-status">Stock Status</label>
+                    <select id="stock-status" value={stockStatus} onChange={(e)=>setStockStatus(e.target.value)} className="date-input">
+                      <option>All Status</option>
+                      <option>In Stock</option>
+                      <option>Low Stock</option>
+                      <option>Out of Stock</option>
+                      <option>Overstock</option>
+                    </select>
+                  </div>
+                )}
               </div>
 
               <div className="export-buttons">

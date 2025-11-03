@@ -43,11 +43,16 @@ export class UsersController {
       if (username !== undefined) { updates.push('username = ?'); params.push(username); }
       if (role !== undefined) { updates.push('role = ?'); params.push(role); }
       if (status !== undefined) { updates.push('status = ?'); params.push(status); }
-      if (req.file) { updates.push('avatar = ?'); params.push(`/${req.file.path.replace(/\\/g, '/')}`.replace('src/', '')); }
+      let avatarPath = null;
+      if (req.file) { 
+        avatarPath = `/${req.file.path.replace(/\\/g, '/')}`.replace('src/', '');
+        updates.push('avatar = ?'); 
+        params.push(avatarPath); 
+      }
       if (updates.length === 0) return res.status(400).json({ success: false, message: 'No fields to update' });
       params.push(id);
       await pool.execute(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, params);
-      res.json({ success: true, message: 'User updated' });
+      res.json({ success: true, message: 'User updated', avatar: avatarPath || undefined });
     } catch (err) {
       console.error('Update user error:', err);
       res.status(500).json({ success: false, message: 'Failed to update user' });

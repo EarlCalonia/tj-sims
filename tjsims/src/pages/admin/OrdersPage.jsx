@@ -121,18 +121,6 @@ const OrderModal = ({ order, isOpen, onClose, onSave, ordersWithItems }) => {
                 </select>
               </div>
               <div className="form-group">
-                <label>Update Payment Status</label>
-                <select
-                  value={editPaymentStatus}
-                  onChange={(e) => setEditPaymentStatus(e.target.value)}
-                  className="form-input"
-                  disabled={!canUpdateOrder}
-                >
-                  <option value="Unpaid">Unpaid</option>
-                  <option value="Paid">Paid</option>
-                </select>
-              </div>
-              <div className="form-group">
                 <label>Update Order Status</label>
                 <select
                   value={editOrderStatus}

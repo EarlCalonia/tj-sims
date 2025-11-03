@@ -173,39 +173,48 @@ const InventoryAlerts = () => {
 
 const SalesReportPreview = () => {
   const navigate = useNavigate();
-  const [dashboardStats, setDashboardStats] = useState(null);
   const [dailySales, setDailySales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [rangeLabel, setRangeLabel] = useState('Daily'); // Daily | Weekly | Monthly
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    fetchSalesPreview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate, rangeLabel]);
 
-  const fetchDashboardData = async () => {
+  const fetchSalesPreview = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch dashboard stats and daily sales
-      const [statsResult, dailyResult] = await Promise.all([
-        dashboardAPI.getDashboardStats(),
-        dashboardAPI.getDailySales()
-      ]);
+      const params = {
+        period: !startDate && !endDate ? 'week' : undefined,
+        ...(startDate ? { start_date: startDate } : {}),
+        ...(endDate ? { end_date: endDate } : {}),
+        granularity: rangeLabel === 'Monthly' ? 'month' : rangeLabel === 'Weekly' ? 'week' : 'day'
+      };
 
-      if (statsResult.success) setDashboardStats(statsResult.data);
-      if (dailyResult.success) setDailySales(dailyResult.data || []);
-      if (!statsResult.success && !dailyResult.success) setError('Failed to fetch dashboard data');
+      const result = await dashboardAPI.getDailySales(params);
+      if (result.success) setDailySales(result.data || []);
+      else setError('Failed to fetch sales preview');
     } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      setError('Error loading dashboard data');
+      console.error('Error fetching sales preview:', error);
+      setError('Error loading sales preview');
     } finally {
       setLoading(false);
     }
   };
 
   const getTrendChartData = () => {
-    const labels = dailySales.map(d => new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+    const labels = dailySales.map(d => {
+      const dt = new Date(d.date);
+      if (rangeLabel === 'Monthly') return dt.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      if (rangeLabel === 'Weekly') return `Week of ${dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+      return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    });
     const data = dailySales.map(d => parseFloat(d.total || 0));
     return {
       labels,
@@ -273,18 +282,40 @@ const SalesReportPreview = () => {
       </div>
 
       <div className="sales-report">
+        <div className="report-controls" style={{ display: 'flex', gap: 12, marginBottom: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: 12, color: '#334155', marginBottom: 4 }}>From</label>
+            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="date-input" />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 12, color: '#334155', marginBottom: 4 }}>To</label>
+            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="date-input" />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 12, color: '#334155', marginBottom: 4 }}>Range Label</label>
+            <select value={rangeLabel} onChange={(e) => setRangeLabel(e.target.value)} className="date-input">
+              <option>Daily</option>
+              <option>Weekly</option>
+              <option>Monthly</option>
+            </select>
+          </div>
+        </div>
         <div className="report-summary">
           <div className="summary-item">
             <span>Total Sales</span>
-            <strong>₱ {dashboardStats?.totalSales?.toLocaleString() || '0.00'}</strong>
+            <strong>₱ {(dailySales.reduce((s, d) => s + (parseFloat(d.total || 0)), 0)).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
           </div>
           <div className="summary-item">
             <span>Orders</span>
-            <strong>{dashboardStats?.totalOrders || 0}</strong>
+            <strong>{dailySales.reduce((s, d) => s + (parseInt(d.orders || 0)), 0)}</strong>
           </div>
           <div className="summary-item">
             <span>Avg. Order Value</span>
-            <strong>₱ {dashboardStats?.averageOrderValue?.toLocaleString() || '0.00'}</strong>
+            <strong>₱ {(() => {
+              const total = dailySales.reduce((s, d) => s + (parseFloat(d.total || 0)), 0);
+              const orders = dailySales.reduce((s, d) => s + (parseInt(d.orders || 0)), 0) || 1;
+              return (total / orders).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            })()}</strong>
           </div>
         </div>
 

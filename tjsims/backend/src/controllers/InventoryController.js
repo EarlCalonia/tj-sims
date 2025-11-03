@@ -49,7 +49,7 @@ export const InventoryController = {
   updateStock: async (req, res) => {
     try {
       const { id } = req.params; // This will be the product_id (e.g., PRD-006)
-      const { quantityToAdd, reorderPoint } = req.body;
+      const { quantityToAdd, reorderPoint, notes, createdBy, transactionDate, supplierId } = req.body;
 
       // Find product by product_id
       const product = await Product.findById(id);
@@ -60,7 +60,12 @@ export const InventoryController = {
         });
       }
 
-      await Inventory.updateStock(id, parseInt(quantityToAdd) || 0, reorderPoint);
+      await Inventory.updateStock(id, parseInt(quantityToAdd) || 0, reorderPoint, {
+        notes,
+        createdBy,
+        transactionDate,
+        supplierId
+      });
 
       // Get updated inventory data
       const updatedInventory = await Inventory.findByProductId(id);

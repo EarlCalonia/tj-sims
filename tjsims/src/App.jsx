@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import LoginPage from './pages/LoginPage';
 import RecoveryPage from './pages/RecoveryPage';
 import LandingPage from './pages/client/LandingPage';
+import ContactUs from './pages/client/ContactUs';
 import Products from './pages/client/Products';
 import ProductDetails from './pages/client/ProductDetails';
 import OrderStatus from './pages/client/OrderStatus';
@@ -41,7 +42,7 @@ const App = () => {
         <Route path="/products" element={<Products />} />
         <Route path="/products/:id" element={<ProductDetails />} />
         <Route path="/order-status" element={<OrderStatus />} />
-        <Route path="/contact-us" element={<LandingPage />} />
+        <Route path="/contact-us" element={<ContactUs />} />
         
         {/* Admin Routes */}
         <Route path="/admin/login" element={<LoginPage />} />
