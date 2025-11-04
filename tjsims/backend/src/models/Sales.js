@@ -264,6 +264,16 @@ export class Sales {
     }
   }
 
+  static async attachDeliveryProof(id, proofPath) {
+    const pool = getPool();
+    await pool.execute("ALTER TABLE sales ADD COLUMN IF NOT EXISTS delivery_proof VARCHAR(255) NULL");
+    const [result] = await pool.execute(
+      'UPDATE sales SET delivery_proof = ? WHERE id = ?',
+      [proofPath, id]
+    );
+    return result.affectedRows > 0;
+  }
+
   static async getSalesStats(dateFrom, dateTo) {
     const pool = getPool();
     let query = `

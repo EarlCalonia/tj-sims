@@ -84,5 +84,44 @@ export const InventoryController = {
         message: error.message
       });
     }
+  },
+
+  // Bulk stock in for multiple products
+  bulkStockIn: async (req, res) => {
+    try {
+      const { supplier, receivedBy, serialNumber, products } = req.body;
+
+      if (!products || products.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'No products provided'
+        });
+      }
+
+      if (!supplier || !receivedBy) {
+        return res.status(400).json({
+          success: false,
+          message: 'Supplier and receivedBy are required'
+        });
+      }
+
+      await Inventory.bulkStockIn({
+        supplier,
+        receivedBy,
+        serialNumber,
+        products
+      });
+
+      res.json({
+        success: true,
+        message: `Successfully updated stock for ${products.length} product(s)`
+      });
+    } catch (error) {
+      console.error('Bulk stock in error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to process bulk stock in'
+      });
+    }
   }
 };

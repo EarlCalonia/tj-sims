@@ -314,4 +314,41 @@ export class SalesController {
       });
     }
   }
+
+  // Upload delivery proof for a sale
+  static async uploadDeliveryProof(req, res) {
+    try {
+      const { id } = req.params;
+      
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          message: 'No delivery proof image provided'
+        });
+      }
+
+      const sale = await Sales.findById(id);
+      if (!sale) {
+        return res.status(404).json({
+          success: false,
+          message: 'Sale not found'
+        });
+      }
+
+      const proofPath = `/uploads/${req.file.filename}`;
+      await Sales.attachDeliveryProof(id, proofPath);
+
+      res.json({
+        success: true,
+        message: 'Delivery proof uploaded successfully',
+        data: { proofPath }
+      });
+    } catch (error) {
+      console.error('Error uploading delivery proof:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to upload delivery proof'
+      });
+    }
+  }
 }

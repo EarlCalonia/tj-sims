@@ -60,6 +60,8 @@ const DeliveryPortal = () => {
 
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [deliveryProof, setDeliveryProof] = useState(null);
+  const [uploadingProof, setUploadingProof] = useState(false);
 
   const handlePaymentStatusChange = (orderId, value) => {
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, paymentStatus: value } : o));
@@ -68,12 +70,40 @@ const DeliveryPortal = () => {
   const handleOrderStatusChange = async (orderId, newStatus) => {
     const target = orders.find(o => o.id === orderId);
     if (!target) return;
+    
+    // Require delivery proof before completing
+    if (newStatus === 'Completed' && !deliveryProof) {
+      alert('Please upload a delivery proof photo before marking as Completed');
+      return;
+    }
+
     const backendStatus = newStatus === 'Out for delivery' ? 'Processing' : newStatus;
     try {
+      setUploadingProof(true);
+      
+      // Upload delivery proof if completing
+      if (newStatus === 'Completed' && deliveryProof) {
+        await salesAPI.uploadDeliveryProof(target.saleId, deliveryProof);
+      }
+      
       await salesAPI.updateSale(target.saleId, { status: backendStatus });
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, orderStatus: newStatus } : o));
+      setDeliveryProof(null);
     } catch (e) {
       alert(`Failed to update status: ${e.message}`);
+    } finally {
+      setUploadingProof(false);
+    }
+  };
+
+  const handleProofFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        return;
+      }
+      setDeliveryProof(file);
     }
   };
 
@@ -246,6 +276,22 @@ const DeliveryPortal = () => {
                 <span className="detail-label">Order Status:</span>
                 <span className={`status-badge ${getOrderStatusClass(selectedOrder.orderStatus)}`}>{selectedOrder.orderStatus}</span>
               </div>
+              {selectedOrder.orderStatus !== 'Completed' && (
+                <div className="detail-row" style={{ marginTop: '20px', flexDirection: 'column', alignItems: 'flex-start' }}>
+                  <span className="detail-label" style={{ marginBottom: '8px' }}>Delivery Proof Photo (Required for Completion):</span>
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={handleProofFileChange}
+                    style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px', width: '100%' }}
+                  />
+                  {deliveryProof && (
+                    <span style={{ marginTop: '8px', color: '#28a745', fontSize: '14px' }}>
+                      ✓ {deliveryProof.name} selected
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
             <div className="modal-footer">
               <button className="close-modal-btn" onClick={() => setIsModalOpen(false)}>Close</button>
