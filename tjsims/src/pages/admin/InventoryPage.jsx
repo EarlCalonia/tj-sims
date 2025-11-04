@@ -300,26 +300,6 @@ const InventoryPage = () => {
 
           {/* Controls Section */}
           <div className="inventory-controls">
-            <button 
-              onClick={handleOpenBulkStockIn}
-              className="stock-in-btn-header"
-              style={{ 
-                marginBottom: '16px',
-                backgroundColor: '#28a745', 
-                color: 'white', 
-                border: 'none', 
-                padding: '10px 20px', 
-                borderRadius: '6px', 
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '500',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-            >
-              <BsBox /> Stock In
-            </button>
             <div className="search-filter-section">
               <div className="search-box">
                 <input
@@ -389,6 +369,29 @@ const InventoryPage = () => {
                 <p className="stat-number out-of-stock">{inventoryStats.outOfStock}</p>
               </div>
             </div>
+          </div>
+
+          {/* Stock In Button */}
+          <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'flex-start' }}>
+            <button 
+              onClick={handleOpenBulkStockIn}
+              className="stock-in-btn-header"
+              style={{ 
+                backgroundColor: '#28a745', 
+                color: 'white', 
+                border: 'none', 
+                padding: '10px 20px', 
+                borderRadius: '6px', 
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '500',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <BsBox /> Stock In
+            </button>
           </div>
 
           {/* Products Table */}
