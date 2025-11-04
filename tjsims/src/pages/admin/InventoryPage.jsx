@@ -28,6 +28,7 @@ const InventoryPage = () => {
     supplier: '',
     receivedBy: '',
     serialNumber: '',
+    receivedDate: new Date().toISOString().slice(0, 16),
     products: []
   });
   const [currentPage, setCurrentPage] = useState(1);
@@ -149,6 +150,7 @@ const InventoryPage = () => {
       supplier: '',
       receivedBy: localStorage.getItem('username') || '',
       serialNumber: '',
+      receivedDate: new Date().toISOString().slice(0, 16),
       products: []
     });
     setIsBulkStockInOpen(true);
@@ -202,6 +204,7 @@ const InventoryPage = () => {
         supplier: bulkStockInData.supplier,
         receivedBy: bulkStockInData.receivedBy,
         serialNumber: bulkStockInData.serialNumber,
+        receivedDate: bulkStockInData.receivedDate,
         products: bulkStockInData.products.map(p => ({
           productId: p.productId,
           quantity: parseInt(p.quantity) || 0
@@ -540,6 +543,17 @@ const InventoryPage = () => {
                     onChange={(e) => setBulkStockInData(prev => ({ ...prev, serialNumber: e.target.value }))}
                     className="form-input"
                     placeholder="Enter serial number"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Date and Time Received</label>
+                  <input
+                    type="datetime-local"
+                    value={bulkStockInData.receivedDate}
+                    onChange={(e) => setBulkStockInData(prev => ({ ...prev, receivedDate: e.target.value }))}
+                    className="form-input"
+                    required
                   />
                 </div>
 

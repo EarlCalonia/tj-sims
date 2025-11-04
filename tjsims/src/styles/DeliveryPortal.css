@@ -57,6 +57,14 @@
   font-size: 1.8rem;
 }
 
+.profile-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #2478bd;
+}
+
 .rider-name {
   color: #2478bd;
   font-weight: 600;
@@ -577,18 +585,22 @@
 @media (max-width: 768px) {
   .delivery-navbar {
     padding: 12px 20px;
-    flex-direction: column;
-    gap: 15px;
   }
 
-  .navbar-left,
+  .navbar-left {
+    gap: 10px;
+  }
+
   .navbar-right {
-    width: 100%;
-    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .rider-name {
+    display: none;
   }
 
   .delivery-container {
-    padding: 20px;
+    padding: 15px;
   }
 
   .delivery-title {
@@ -599,67 +611,233 @@
     font-size: 0.9rem;
   }
 
+  /* Hide columns on mobile */
+  .delivery-table thead th:not(:first-child):not(:last-child),
+  .delivery-table tbody td:not(:first-child):not(:last-child) {
+    display: none;
+  }
+
   .delivery-table-section {
-    overflow-x: auto;
+    overflow-x: visible;
   }
 
   .delivery-table {
-    min-width: 800px;
+    min-width: 100%;
+  }
+
+  .delivery-table thead th,
+  .delivery-table tbody td {
+    padding: 12px 8px;
+  }
+
+  .delivery-table thead th:first-child,
+  .delivery-table tbody td:first-child {
+    width: 40%;
+  }
+
+  .delivery-table thead th:last-child,
+  .delivery-table tbody td:last-child {
+    width: 60%;
   }
 
   .table-footer {
     flex-direction: column;
     align-items: flex-start;
+    padding: 15px;
   }
 
   .pagination {
     flex-wrap: wrap;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .modal-overlay {
+    padding: 10px;
   }
 
   .modal-content {
-    max-width: 95%;
+    max-width: 100%;
+    max-height: 95vh;
+  }
+
+  .modal-header {
+    padding: 15px;
+  }
+
+  .modal-header h2 {
+    font-size: 1.1rem;
+  }
+
+  .modal-body {
+    padding: 15px;
+  }
+
+  .modal-footer {
+    padding: 15px;
+    gap: 10px;
   }
 
   .detail-row {
     flex-direction: column;
     gap: 5px;
+    padding: 10px 0;
   }
 
   .detail-value {
     text-align: left;
   }
+
+  /* Make images responsive in modals */
+  .modal-body img {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+/* Medium mobile screens */
+@media (max-width: 640px) {
+  .view-btn span::after {
+    content: '';
+  }
+  
+  .complete-delivery-btn span::after {
+    content: '';
+  }
 }
 
 @media (max-width: 480px) {
   .navbar-logo {
-    height: 40px;
+    height: 35px;
   }
 
   .navbar-title {
-    font-size: 1rem;
+    font-size: 0.9rem;
+  }
+
+  .navbar-divider {
+    font-size: 1.2rem;
+  }
+
+  .logout-btn {
+    font-size: 0.85rem;
+    padding: 6px 12px;
+  }
+
+  .delivery-container {
+    padding: 12px;
   }
 
   .delivery-title {
-    font-size: 1.3rem;
+    font-size: 1.2rem;
+  }
+
+  .delivery-subtitle {
+    font-size: 0.85rem;
   }
 
   .delivery-search-box {
-    max-width: 100%;
+    width: 100%;
+  }
+
+  .delivery-table thead th,
+  .delivery-table tbody td {
+    padding: 10px 6px;
+    font-size: 0.85rem;
+  }
+
+  .order-id {
+    font-size: 0.85rem;
   }
 
   .status-badge {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     padding: 4px 8px;
   }
 
   .view-btn {
-    padding: 6px 12px;
-    font-size: 0.8rem;
+    padding: 6px 10px;
+    font-size: 0.75rem;
+    gap: 4px;
+  }
+
+  .view-btn i {
+    font-size: 0.85rem;
+  }
+
+  .complete-delivery-btn {
+    padding: 6px 10px !important;
+    font-size: 0.75rem !important;
+  }
+
+  .complete-delivery-btn i {
+    font-size: 0.85rem;
+  }
+
+  /* Hide button text on very small screens, show only icons */
+  .view-btn span,
+  .complete-delivery-btn span {
+    display: none;
+  }
+
+  .view-btn,
+  .complete-delivery-btn {
+    min-width: 36px;
+    justify-content: center;
   }
 
   .pagination-btn {
-    padding: 6px 10px;
+    padding: 6px 8px;
+    font-size: 0.8rem;
+    min-width: 32px;
+  }
+
+  .showing-info {
+    font-size: 0.8rem;
+  }
+
+  .modal-header h2 {
+    font-size: 1rem;
+  }
+
+  .modal-body {
+    padding: 12px;
+  }
+
+  .modal-footer {
+    padding: 12px;
+    flex-direction: column;
+  }
+
+  .modal-footer button {
+    width: 100%;
+  }
+
+  .detail-label {
     font-size: 0.85rem;
-    min-width: 35px;
+  }
+
+  .detail-value {
+    font-size: 0.85rem;
+  }
+
+  .cancel-btn,
+  .confirm-btn,
+  .close-modal-btn {
+    width: 100%;
+    padding: 12px !important;
+  }
+
+  /* Make file inputs more mobile-friendly */
+  .modal-body input[type="file"] {
+    font-size: 0.85rem;
+    padding: 10px !important;
+  }
+
+  /* Responsive images in modals */
+  .modal-body img {
+    max-width: 100%;
+    max-height: 300px !important;
+    object-fit: contain;
   }
 }

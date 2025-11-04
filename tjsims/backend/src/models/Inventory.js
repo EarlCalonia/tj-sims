@@ -167,14 +167,14 @@ export class Inventory {
     return rows;
   }
 
-  static async bulkStockIn({ supplier, receivedBy, serialNumber, products }) {
+  static async bulkStockIn({ supplier, receivedBy, serialNumber, receivedDate, products }) {
     const pool = getPool();
     const connection = await pool.getConnection();
 
     try {
       await connection.beginTransaction();
 
-      const transactionDate = new Date();
+      const transactionDate = receivedDate ? new Date(receivedDate) : new Date();
       const notes = `Bulk Stock In - Supplier: ${supplier} | Serial: ${serialNumber || 'N/A'} | Received by: ${receivedBy}`;
 
       // Process each product
