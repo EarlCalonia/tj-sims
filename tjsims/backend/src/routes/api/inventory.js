@@ -9,6 +9,9 @@ router.get('/stats', InventoryController.getInventoryStats);
 // GET /api/inventory/products - Get products with inventory information
 router.get('/products', InventoryController.getProductsWithInventory);
 
+// POST /api/inventory/bulk-stock-in - Bulk stock in for multiple products
+router.post('/bulk-stock-in', InventoryController.bulkStockIn);
+
 // PUT /api/inventory/:id/stock - Update product stock
 router.put('/:id/stock', InventoryController.updateStock);
 

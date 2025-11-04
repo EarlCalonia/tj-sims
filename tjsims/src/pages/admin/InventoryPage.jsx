@@ -23,7 +23,13 @@ const InventoryPage = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAddMode, setIsAddMode] = useState(true);
-  const [isStockInMode, setIsStockInMode] = useState(false);
+  const [isBulkStockInOpen, setIsBulkStockInOpen] = useState(false);
+  const [bulkStockInData, setBulkStockInData] = useState({
+    supplier: '',
+    receivedBy: '',
+    serialNumber: '',
+    products: []
+  });
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(5);
 
@@ -124,7 +130,6 @@ const InventoryPage = () => {
   // Handle edit product
   const handleEditProduct = (product) => {
     setIsAddMode(false);
-    setIsStockInMode(false);
     setSelectedProduct({
       ...product,
       quantityToAdd: 0,
@@ -138,16 +143,85 @@ const InventoryPage = () => {
     setIsModalOpen(true);
   };
 
-  // Handle stock in (quantity only)
-  const handleStockIn = (product) => {
-    setIsAddMode(false);
-    setIsStockInMode(true);
-    setSelectedProduct({
-      ...product,
-      quantityToAdd: 0,
-      newTotal: product.stock
+  // Handle bulk stock in
+  const handleOpenBulkStockIn = () => {
+    setBulkStockInData({
+      supplier: '',
+      receivedBy: localStorage.getItem('username') || '',
+      serialNumber: '',
+      products: []
     });
-    setIsModalOpen(true);
+    setIsBulkStockInOpen(true);
+  };
+
+  const handleAddProductRow = () => {
+    setBulkStockInData(prev => ({
+      ...prev,
+      products: [...prev.products, { productId: '', productName: '', brand: '', quantity: 0 }]
+    }));
+  };
+
+  const handleRemoveProductRow = (index) => {
+    setBulkStockInData(prev => ({
+      ...prev,
+      products: prev.products.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleProductRowChange = (index, field, value) => {
+    setBulkStockInData(prev => {
+      const newProducts = [...prev.products];
+      newProducts[index] = { ...newProducts[index], [field]: value };
+      
+      // Auto-fill brand when product is selected
+      if (field === 'productId') {
+        const selectedProduct = products.find(p => p.product_id === value);
+        if (selectedProduct) {
+          newProducts[index].productName = selectedProduct.name;
+          newProducts[index].brand = selectedProduct.brand;
+        }
+      }
+      
+      return { ...prev, products: newProducts };
+    });
+  };
+
+  const handleBulkStockInSubmit = async (e) => {
+    e.preventDefault();
+    if (isSubmitting) return;
+
+    if (bulkStockInData.products.length === 0) {
+      alert('Please add at least one product');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      
+      const payload = {
+        supplier: bulkStockInData.supplier,
+        receivedBy: bulkStockInData.receivedBy,
+        serialNumber: bulkStockInData.serialNumber,
+        products: bulkStockInData.products.map(p => ({
+          productId: p.productId,
+          quantity: parseInt(p.quantity) || 0
+        }))
+      };
+
+      const response = await inventoryAPI.bulkStockIn(payload);
+
+      if (response.success) {
+        alert('Bulk stock in completed successfully');
+        await loadProducts();
+        await loadInventoryStats();
+        setIsBulkStockInOpen(false);
+      }
+    } catch (error) {
+      console.error('Error in bulk stock in:', error);
+      alert('Error: ' + error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Handle delete product
@@ -165,21 +239,13 @@ const InventoryPage = () => {
     try {
       setIsSubmitting(true);
 
-      const payload = isStockInMode
-        ? {
-            quantityToAdd: selectedProduct.quantityToAdd,
-            reorderPoint: selectedProduct.reorderPoint || 10,
-            notes: 'Stock In',
-            createdBy: localStorage.getItem('username') || 'Admin',
-            transactionDate: new Date().toISOString().slice(0, 16)
-          }
-        : {
-            quantityToAdd: selectedProduct.quantityToAdd,
-            reorderPoint: selectedProduct.reorderPoint,
-            notes: `Serial: ${selectedProduct.serial || '-'} | Supplier: ${selectedProduct.supplierSource || '-'}`,
-            createdBy: selectedProduct.personName,
-            transactionDate: selectedProduct.transactionDate
-          };
+      const payload = {
+        quantityToAdd: selectedProduct.quantityToAdd,
+        reorderPoint: selectedProduct.reorderPoint,
+        notes: `Serial: ${selectedProduct.serial || '-'} | Supplier: ${selectedProduct.supplierSource || '-'}`,
+        createdBy: selectedProduct.personName,
+        transactionDate: selectedProduct.transactionDate
+      };
 
       const response = await inventoryAPI.updateStock(selectedProduct.product_id, payload);
 
@@ -234,6 +300,26 @@ const InventoryPage = () => {
 
           {/* Controls Section */}
           <div className="inventory-controls">
+            <button 
+              onClick={handleOpenBulkStockIn}
+              className="stock-in-btn-header"
+              style={{ 
+                marginBottom: '16px',
+                backgroundColor: '#28a745', 
+                color: 'white', 
+                border: 'none', 
+                padding: '10px 20px', 
+                borderRadius: '6px', 
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '500',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <BsBox /> Stock In
+            </button>
             <div className="search-filter-section">
               <div className="search-box">
                 <input
@@ -353,14 +439,6 @@ const InventoryPage = () => {
                       <td>
                         <div className="action-buttons">
                           <button
-                            onClick={() => handleStockIn(product)}
-                            className="stock-in-btn"
-                            title="Stock In"
-                            style={{ marginRight: '8px', backgroundColor: '#28a745', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer' }}
-                          >
-                            <BsBox style={{ marginRight: '4px' }} /> Stock In
-                          </button>
-                          <button
                             onClick={() => handleEditProduct(product)}
                             className="edit-btn"
                             title="Edit Product"
@@ -416,12 +494,164 @@ const InventoryPage = () => {
         </div>
       </main>
 
+      {/* Bulk Stock In Modal */}
+      {isBulkStockInOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '800px', width: '90%' }}>
+            <div className="modal-header">
+              <h2>Stock In</h2>
+              <button onClick={() => setIsBulkStockInOpen(false)} className="close-btn">×</button>
+            </div>
+
+            <form onSubmit={handleBulkStockInSubmit} className="product-form">
+              <div className="form-section">
+                <div className="form-group">
+                  <label>Supplier/Source</label>
+                  <input
+                    type="text"
+                    value={bulkStockInData.supplier}
+                    onChange={(e) => setBulkStockInData(prev => ({ ...prev, supplier: e.target.value }))}
+                    className="form-input"
+                    placeholder="Enter supplier name"
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Received By</label>
+                  <input
+                    type="text"
+                    value={bulkStockInData.receivedBy}
+                    onChange={(e) => setBulkStockInData(prev => ({ ...prev, receivedBy: e.target.value }))}
+                    className="form-input"
+                    placeholder="Enter receiver name"
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Serial Number</label>
+                  <input
+                    type="text"
+                    value={bulkStockInData.serialNumber}
+                    onChange={(e) => setBulkStockInData(prev => ({ ...prev, serialNumber: e.target.value }))}
+                    className="form-input"
+                    placeholder="Enter serial number"
+                  />
+                </div>
+
+                <div style={{ marginTop: '24px', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: '600' }}>Products</h3>
+                  <button
+                    type="button"
+                    onClick={handleAddProductRow}
+                    style={{
+                      backgroundColor: '#007bff',
+                      color: 'white',
+                      border: 'none',
+                      padding: '8px 16px',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '14px'
+                    }}
+                  >
+                    + Add Row
+                  </button>
+                </div>
+
+                <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
+                      <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px' }}>Product Name</th>
+                      <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px' }}>Brand</th>
+                      <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px', width: '100px' }}>Quantity</th>
+                      <th style={{ padding: '12px', textAlign: 'center', fontSize: '14px', width: '80px' }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bulkStockInData.products.length === 0 ? (
+                      <tr>
+                        <td colSpan="4" style={{ padding: '20px', textAlign: 'center', color: '#6c757d' }}>
+                          No products added. Click "+ Add Row" to add products.
+                        </td>
+                      </tr>
+                    ) : (
+                      bulkStockInData.products.map((row, index) => (
+                        <tr key={index} style={{ borderBottom: '1px solid #dee2e6' }}>
+                          <td style={{ padding: '8px' }}>
+                            <select
+                              value={row.productId}
+                              onChange={(e) => handleProductRowChange(index, 'productId', e.target.value)}
+                              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da' }}
+                              required
+                            >
+                              <option value="">Select Product</option>
+                              {products.map(p => (
+                                <option key={p.product_id} value={p.product_id}>{p.name}</option>
+                              ))}
+                            </select>
+                          </td>
+                          <td style={{ padding: '8px' }}>
+                            <input
+                              type="text"
+                              value={row.brand}
+                              readOnly
+                              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', backgroundColor: '#e9ecef' }}
+                            />
+                          </td>
+                          <td style={{ padding: '8px' }}>
+                            <input
+                              type="number"
+                              value={row.quantity}
+                              onChange={(e) => handleProductRowChange(index, 'quantity', e.target.value)}
+                              min="1"
+                              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da' }}
+                              required
+                            />
+                          </td>
+                          <td style={{ padding: '8px', textAlign: 'center' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveProductRow(index)}
+                              style={{
+                                backgroundColor: '#dc3545',
+                                color: 'white',
+                                border: 'none',
+                                padding: '6px 12px',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '13px'
+                              }}
+                            >
+                              Remove
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="modal-actions">
+                <button type="button" onClick={() => setIsBulkStockInOpen(false)} className="cancel-btn">
+                  Cancel
+                </button>
+                <button type="submit" className="confirm-btn" disabled={isSubmitting}>
+                  {isSubmitting ? 'Processing...' : 'Confirm'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Product Modal */}
       {isModalOpen && (
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
-              <h2>{isAddMode ? 'Add New Product' : isStockInMode ? 'Stock In' : 'Edit Product'}</h2>
+              <h2>{isAddMode ? 'Add New Product' : 'Edit Product'}</h2>
               <button
                 onClick={() => setIsModalOpen(false)}
                 className="close-btn"
@@ -468,20 +698,7 @@ const InventoryPage = () => {
                   </div>
                 </div>
 
-                {isStockInMode ? (
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>New Total</label>
-                      <input
-                        type="text"
-                        value={selectedProduct?.newTotal || selectedProduct?.stock || ''}
-                        readOnly
-                        className="form-input readonly"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <>
+                <>
                     <div className="form-row">
                       <div className="form-group">
                         <label>New Total</label>
@@ -556,11 +773,10 @@ const InventoryPage = () => {
                       </div>
                     </div>
 
-                    <div className="alert-text">
-                      <p>Alert when stock falls below this level</p>
-                    </div>
-                  </>
-                )}
+                <div className="alert-text">
+                  <p>Alert when stock falls below this level</p>
+                </div>
+              </>
               </div>
 
               <div className="modal-actions">
