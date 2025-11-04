@@ -29,7 +29,6 @@ const bufferToBase64 = (buffer) => {
 // Try to embed a Unicode font so '₱' renders correctly
 const ensureUnicodeFont = async (doc) => {
   try {
-    // Expect font files to be placed in /fonts (public folder)
     const regularRes = await fetch('/fonts/NotoSans-Regular.ttf');
     if (!regularRes.ok) return false;
     const regularBuf = await regularRes.arrayBuffer();
@@ -37,7 +36,6 @@ const ensureUnicodeFont = async (doc) => {
     doc.addFileToVFS('NotoSans-Regular.ttf', regularB64);
     doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
 
-    // Optional: try bold if present
     try {
       const boldRes = await fetch('/fonts/NotoSans-Bold.ttf');
       if (boldRes.ok) {
@@ -48,7 +46,6 @@ const ensureUnicodeFont = async (doc) => {
       }
     } catch {}
 
-    doc.setFont('NotoSans', 'normal');
     return true;
   } catch {
     return false;
@@ -295,8 +292,8 @@ export const generateSaleReceipt = async ({
   const pageWidth = doc.internal.pageSize.getWidth();
   let y = 40;
 
-  // Ensure a Unicode font for '₱' if available; otherwise fallback to core fonts
-  const fontLoaded = await ensureUnicodeFont(doc);
+  // Use built-in core fonts to avoid unicode font errors
+  const fontLoaded = false;
   const peso = (n) => {
     const v = Number(n) || 0;
     const sym = fontLoaded ? '₱' : 'PHP ';
@@ -313,12 +310,12 @@ export const generateSaleReceipt = async ({
   }
 
   // Header
-  doc.setFont(fontLoaded ? 'NotoSans' : 'helvetica', 'bold');
+  doc.setFont('helvetica', 'bold');
   doc.setFontSize(18);
   doc.text('TJC Sales Receipt', pageWidth / 2, y, { align: 'center' });
   y += 14;
 
-  doc.setFont(fontLoaded ? 'NotoSans' : 'helvetica', 'normal');
+  doc.setFont('helvetica', 'normal');
   doc.setFontSize(11);
   const dateStr = new Date(createdAt).toLocaleString('en-PH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   const marginLeft = 60;
@@ -387,7 +384,7 @@ export const generateSaleReceipt = async ({
   }
 
   y += 10;
-  doc.setFont(fontLoaded ? 'NotoSans' : 'helvetica', 'italic');
+  doc.setFont('helvetica', 'italic');
   doc.text('Thank you for your purchase!', pageWidth / 2, y, { align: 'center' });
 
   return doc;

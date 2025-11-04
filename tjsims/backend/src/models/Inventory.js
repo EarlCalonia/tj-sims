@@ -166,4 +166,95 @@ export class Inventory {
     const [rows] = await pool.execute(query, params);
     return rows;
   }
+
+  static async bulkStockIn({ supplier, receivedBy, serialNumber, products }) {
+    const pool = getPool();
+    const connection = await pool.getConnection();
+
+    try {
+      await connection.beginTransaction();
+
+      const transactionDate = new Date();
+      const notes = `Bulk Stock In - Supplier: ${supplier} | Serial: ${serialNumber || 'N/A'} | Received by: ${receivedBy}`;
+
+      // Process each product
+      for (const product of products) {
+        const { productId, quantity } = product;
+
+        if (!productId || !quantity || quantity <= 0) {
+          throw new Error(`Invalid product data: productId=${productId}, quantity=${quantity}`);
+        }
+
+        // Verify product exists
+        const [productExists] = await connection.execute(
+          'SELECT product_id FROM products WHERE product_id = ?',
+          [productId]
+        );
+
+        if (!productExists[0]) {
+          throw new Error(`Product ${productId} not found`);
+        }
+
+        // Get or create inventory record
+        const [inventory] = await connection.execute(
+          'SELECT * FROM inventory WHERE product_id = ?',
+          [productId]
+        );
+
+        let inventoryId;
+
+        if (!inventory[0]) {
+          // Create new inventory record
+          const [result] = await connection.execute(
+            `INSERT INTO inventory (product_id, stock, reorder_point, last_restock_date)
+             VALUES (?, ?, 10, ?)`,
+            [productId, quantity, transactionDate]
+          );
+          inventoryId = result.insertId;
+        } else {
+          // Update existing inventory
+          const newStock = inventory[0].stock + quantity;
+          await connection.execute(
+            `UPDATE inventory 
+             SET stock = ?, last_restock_date = ?
+             WHERE product_id = ?`,
+            [newStock, transactionDate, productId]
+          );
+          inventoryId = inventory[0].id;
+        }
+
+        // Record transaction
+        const transactionId = `TRX-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+        await connection.execute(
+          `INSERT INTO inventory_transactions (
+             transaction_id,
+             inventory_id,
+             product_id,
+             transaction_type,
+             quantity,
+             notes,
+             transaction_date,
+             created_by
+           ) VALUES (?, ?, ?, 'in', ?, ?, ?, ?)`,
+          [
+            transactionId,
+            inventoryId,
+            productId,
+            quantity,
+            notes,
+            transactionDate,
+            receivedBy
+          ]
+        );
+      }
+
+      await connection.commit();
+      return true;
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
 }

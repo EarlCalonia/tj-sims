@@ -261,6 +261,18 @@ export const salesAPI = {
     });
     return handleResponse(response);
   },
+
+  // Upload delivery proof
+  uploadDeliveryProof: async (id, imageFile) => {
+    const formData = new FormData();
+    formData.append('proof', imageFile);
+    const response = await fetch(`${API_BASE_URL}/sales/${id}/delivery-proof`, {
+      method: 'POST',
+      body: formData,
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  },
 };
 
 // Inventory API functions

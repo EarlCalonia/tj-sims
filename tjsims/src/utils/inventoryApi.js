@@ -43,5 +43,18 @@ export const inventoryAPI = {
       credentials: 'include'
     });
     return handleResponse(response);
+  },
+
+  // Bulk stock in for multiple products
+  bulkStockIn: async (data) => {
+    const response = await fetch(`${API_BASE_URL}/inventory/bulk-stock-in`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data),
+      credentials: 'include'
+    });
+    return handleResponse(response);
   }
 };
