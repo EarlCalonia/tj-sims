@@ -121,6 +121,13 @@ const ProductPage = () => {
     setCurrentPage(1);
   }, [searchQuery, selectedCategory, selectedBrand, selectedStatus]);
 
+  useEffect(() => {
+    const t = setTimeout(() => {
+      loadProducts();
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchQuery, selectedCategory, selectedBrand, selectedStatus]);
+
   // Handle page change
   const handlePageChange = (page) => {
     setCurrentPage(page);
@@ -302,7 +309,7 @@ const ProductPage = () => {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="search-input"
                 />
-                <button className="search-btn" type="button">
+                <button className="search-btn" type="button" onClick={loadProducts}>
                   <BsSearch className="search-icon" />
                 </button>
               </div>

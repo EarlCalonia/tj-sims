@@ -41,19 +41,26 @@ const Products = () => {
       .catch((e) => setError(e.message))
       .finally(() => isMounted && setLoading(false));
     return () => { isMounted = false; };
-  }, [search, category]);
+  }, []);
 
   const filtered = useMemo(() => {
-    const base = products.filter(p => !category || p.category === category);
+    const norm = (v) => String(v || '').trim().toLowerCase();
+    const base = products.filter(p => !category || norm(p.category) === norm(category));
     if (!search) return base;
     const s = search.toLowerCase();
     return base.filter(p =>
       p.name?.toLowerCase().includes(s) ||
       p.brand?.toLowerCase().includes(s) ||
       p.category?.toLowerCase().includes(s) ||
-      p.product_id?.toLowerCase().includes(s)
+      String(p.product_id || '').toLowerCase().includes(s)
     );
   }, [products, search, category]);
+
+  const categories = useMemo(() => {
+    const set = new Set();
+    products.forEach(p => { if (p.category) set.add(p.category); });
+    return Array.from(set).sort();
+  }, [products]);
 
   return (
     <div className="products-page">
@@ -74,7 +81,7 @@ const Products = () => {
               placeholder="Search" 
               className="search-input"
               value={search}
-              onChange={(e) => setSearchParams(prev => { const p = new URLSearchParams(prev); if (e.target.value) p.set('q', e.target.value); else p.delete('q'); return p; })}
+              onChange={(e) => { const p = new URLSearchParams(searchParams); if (e.target.value) { p.set('q', e.target.value); } else { p.delete('q'); } setSearchParams(p); }}
             />
             <button className="search-button">
               <i className="fas fa-search"></i>
@@ -83,12 +90,10 @@ const Products = () => {
           
           {/* Category Buttons */}
           <div className="category-buttons">
-            <button className="category-btn" onClick={() => setSearchParams(p => { const np=new URLSearchParams(p); np.set('category','Engine & Cooling'); return np; })}>Engine & Cooling</button>
-            <button className="category-btn" onClick={() => setSearchParams(p => { const np=new URLSearchParams(p); np.set('category','Transmission'); return np; })}>Transmission</button>
-            <button className="category-btn" onClick={() => setSearchParams(p => { const np=new URLSearchParams(p); np.set('category','Suspension & Steering'); return np; })}>Suspension & Steering</button>
-            <button className="category-btn" onClick={() => setSearchParams(p => { const np=new URLSearchParams(p); np.set('category','Brake Parts'); return np; })}>Brake Parts</button>
-            <button className="category-btn" onClick={() => setSearchParams(p => { const np=new URLSearchParams(p); np.set('category','Body & Exterior'); return np; })}>Body & Exterior</button>
-            <button className="category-btn" onClick={() => setSearchParams(p => { const np=new URLSearchParams(p); np.delete('category'); return np; })}>All Brands</button>
+            {categories.map((c) => (
+              <button key={c} className="category-btn" onClick={() => { const np = new URLSearchParams(searchParams); np.set('category', c); setSearchParams(np); }}>{c}</button>
+            ))}
+            <button className="category-btn" onClick={() => { const np = new URLSearchParams(searchParams); np.delete('category'); setSearchParams(np); }}>All Categories</button>
           </div>
         </div>
 
