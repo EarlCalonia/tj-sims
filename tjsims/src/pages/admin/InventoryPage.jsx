@@ -23,6 +23,7 @@ const InventoryPage = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAddMode, setIsAddMode] = useState(true);
+  const [isStockInMode, setIsStockInMode] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(5);
 
@@ -123,6 +124,7 @@ const InventoryPage = () => {
   // Handle edit product
   const handleEditProduct = (product) => {
     setIsAddMode(false);
+    setIsStockInMode(false);
     setSelectedProduct({
       ...product,
       quantityToAdd: 0,
@@ -132,6 +134,18 @@ const InventoryPage = () => {
       personName: localStorage.getItem('username') || 'Admin',
       serial: '',
       supplierSource: ''
+    });
+    setIsModalOpen(true);
+  };
+
+  // Handle stock in (quantity only)
+  const handleStockIn = (product) => {
+    setIsAddMode(false);
+    setIsStockInMode(true);
+    setSelectedProduct({
+      ...product,
+      quantityToAdd: 0,
+      newTotal: product.stock
     });
     setIsModalOpen(true);
   };
@@ -151,13 +165,23 @@ const InventoryPage = () => {
     try {
       setIsSubmitting(true);
 
-      const response = await inventoryAPI.updateStock(selectedProduct.product_id, {
-        quantityToAdd: selectedProduct.quantityToAdd,
-        reorderPoint: selectedProduct.reorderPoint,
-        notes: `Serial: ${selectedProduct.serial || '-'} | Supplier: ${selectedProduct.supplierSource || '-'}`,
-        createdBy: selectedProduct.personName,
-        transactionDate: selectedProduct.transactionDate
-      });
+      const payload = isStockInMode
+        ? {
+            quantityToAdd: selectedProduct.quantityToAdd,
+            reorderPoint: selectedProduct.reorderPoint || 10,
+            notes: 'Stock In',
+            createdBy: localStorage.getItem('username') || 'Admin',
+            transactionDate: new Date().toISOString().slice(0, 16)
+          }
+        : {
+            quantityToAdd: selectedProduct.quantityToAdd,
+            reorderPoint: selectedProduct.reorderPoint,
+            notes: `Serial: ${selectedProduct.serial || '-'} | Supplier: ${selectedProduct.supplierSource || '-'}`,
+            createdBy: selectedProduct.personName,
+            transactionDate: selectedProduct.transactionDate
+          };
+
+      const response = await inventoryAPI.updateStock(selectedProduct.product_id, payload);
 
       if (response.success) {
         await loadProducts();
@@ -329,6 +353,14 @@ const InventoryPage = () => {
                       <td>
                         <div className="action-buttons">
                           <button
+                            onClick={() => handleStockIn(product)}
+                            className="stock-in-btn"
+                            title="Stock In"
+                            style={{ marginRight: '8px', backgroundColor: '#28a745', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer' }}
+                          >
+                            <BsBox style={{ marginRight: '4px' }} /> Stock In
+                          </button>
+                          <button
                             onClick={() => handleEditProduct(product)}
                             className="edit-btn"
                             title="Edit Product"
@@ -389,7 +421,7 @@ const InventoryPage = () => {
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
-              <h2>{isAddMode ? 'Add New Product' : 'Edit Product'}</h2>
+              <h2>{isAddMode ? 'Add New Product' : isStockInMode ? 'Stock In' : 'Edit Product'}</h2>
               <button
                 onClick={() => setIsModalOpen(false)}
                 className="close-btn"
@@ -431,87 +463,104 @@ const InventoryPage = () => {
                       min="0"
                       className="form-input"
                       placeholder="Enter quantity to add"
+                      required
                     />
                   </div>
                 </div>
 
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>New Total</label>
-                    <input
-                      type="text"
-                      value={selectedProduct?.newTotal || selectedProduct?.stock || ''}
-                      readOnly
-                      className="form-input readonly"
-                    />
+                {isStockInMode ? (
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>New Total</label>
+                      <input
+                        type="text"
+                        value={selectedProduct?.newTotal || selectedProduct?.stock || ''}
+                        readOnly
+                        className="form-input readonly"
+                      />
+                    </div>
                   </div>
+                ) : (
+                  <>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>New Total</label>
+                        <input
+                          type="text"
+                          value={selectedProduct?.newTotal || selectedProduct?.stock || ''}
+                          readOnly
+                          className="form-input readonly"
+                        />
+                      </div>
 
-                  <div className="form-group">
-                    <label>Reorder Point</label>
-                    <input
-                      type="number"
-                      name="reorderPoint"
-                      value={selectedProduct?.reorderPoint || ''}
-                      onChange={handleInputChange}
-                      min="0"
-                      className="form-input"
-                      placeholder="Alert threshold"
-                    />
-                  </div>
-                </div>
+                      <div className="form-group">
+                        <label>Reorder Point</label>
+                        <input
+                          type="number"
+                          name="reorderPoint"
+                          value={selectedProduct?.reorderPoint || ''}
+                          onChange={handleInputChange}
+                          min="0"
+                          className="form-input"
+                          placeholder="Alert threshold"
+                        />
+                      </div>
+                    </div>
 
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Transaction Date & Time</label>
-                    <input
-                      type="datetime-local"
-                      name="transactionDate"
-                      value={selectedProduct?.transactionDate || ''}
-                      onChange={handleInputChange}
-                      className="form-input"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Person</label>
-                    <input
-                      type="text"
-                      name="personName"
-                      value={selectedProduct?.personName || ''}
-                      onChange={handleInputChange}
-                      className="form-input"
-                      placeholder="Enter person"
-                    />
-                  </div>
-                </div>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Transaction Date & Time</label>
+                        <input
+                          type="datetime-local"
+                          name="transactionDate"
+                          value={selectedProduct?.transactionDate || ''}
+                          onChange={handleInputChange}
+                          className="form-input"
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Person</label>
+                        <input
+                          type="text"
+                          name="personName"
+                          value={selectedProduct?.personName || ''}
+                          onChange={handleInputChange}
+                          className="form-input"
+                          placeholder="Enter person"
+                        />
+                      </div>
+                    </div>
 
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Serial Number</label>
-                    <input
-                      type="text"
-                      name="serial"
-                      value={selectedProduct?.serial || ''}
-                      onChange={handleInputChange}
-                      className="form-input"
-                      placeholder="Enter serial"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Supplier / Source</label>
-                    <input
-                      type="text"
-                      name="supplierSource"
-                      value={selectedProduct?.supplierSource || ''}
-                      onChange={handleInputChange}
-                      className="form-input"
-                      placeholder="Enter supplier or source"
-                    />
-                  </div>
-                </div>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Serial Number</label>
+                        <input
+                          type="text"
+                          name="serial"
+                          value={selectedProduct?.serial || ''}
+                          onChange={handleInputChange}
+                          className="form-input"
+                          placeholder="Enter serial"
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Supplier / Source</label>
+                        <input
+                          type="text"
+                          name="supplierSource"
+                          value={selectedProduct?.supplierSource || ''}
+                          onChange={handleInputChange}
+                          className="form-input"
+                          placeholder="Enter supplier or source"
+                        />
+                      </div>
+                    </div>
 
-                <div className="alert-text">
-                  <p>Alert when stock falls below this level</p>
-                </div>
+                    <div className="alert-text">
+                      <p>Alert when stock falls below this level</p>
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="modal-actions">
