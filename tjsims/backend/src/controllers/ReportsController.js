@@ -156,7 +156,6 @@ export class ReportsController {
                CASE
                  WHEN COALESCE(i.stock, 0) <= 0 THEN 'Out of Stock'
                  WHEN COALESCE(i.stock, 0) < COALESCE(i.reorder_point, 10) THEN 'Low Stock'
-                 WHEN COALESCE(i.stock, 0) >= COALESCE(i.reorder_point, 10) * 2 THEN 'Overstock'
                  ELSE 'In Stock'
                END as stock_status
         FROM products p
@@ -204,7 +203,6 @@ export class ReportsController {
                  CASE
                    WHEN COALESCE(i.stock, 0) <= 0 THEN 'Out of Stock'
                    WHEN COALESCE(i.stock, 0) < COALESCE(i.reorder_point, 10) THEN 'Low Stock'
-                   WHEN COALESCE(i.stock, 0) >= COALESCE(i.reorder_point, 10) * 2 THEN 'Overstock'
                    ELSE 'In Stock'
                  END as stock_status
           FROM products p
@@ -289,215 +287,33 @@ export class ReportsController {
     }
   }
 
-  // Export sales report as CSV
-  static async exportSalesReportCSV(req, res) {
+  // Get filter options (brands and categories)
+  static async getFilterOptions(req, res) {
     try {
-      const { start_date, end_date } = req.query;
-
-      // Build query for all sales data (no pagination for export)
-      let query = `
-        SELECT s.*, si.product_name, si.brand, si.quantity, si.price, si.subtotal
-        FROM sales s
-        LEFT JOIN sale_items si ON s.id = si.sale_id
-        WHERE 1=1
-          AND (s.status = 'Completed' OR s.status IS NULL)
-      `;
-      let params = [];
-
-      if (start_date) {
-        query += ' AND DATE(s.created_at) >= ?';
-        params.push(start_date);
-      }
-
-      if (end_date) {
-        query += ' AND DATE(s.created_at) <= ?';
-        params.push(end_date);
-      }
-
-      query += ' ORDER BY s.created_at DESC, si.id';
-
       const pool = getPool();
-      const [rows] = await pool.execute(query, params);
 
-      // Create CSV content
-      const csvHeaders = [
-        'Order ID',
-        'Customer Name',
-        'Contact',
-        'Order Date',
-        'Total Amount',
-        'Payment Method',
-        'Product Name',
-        'Brand',
-        'Quantity',
-        'Unit Price',
-        'Total Price'
-      ];
+      // Get unique brands from active products
+      const [brands] = await pool.execute(
+        `SELECT DISTINCT brand FROM products WHERE brand IS NOT NULL AND brand != '' AND status = 'Active' ORDER BY brand`
+      );
 
-      const csvRows = [csvHeaders.join(',')];
+      // Get unique categories from active products
+      const [categories] = await pool.execute(
+        `SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND category != '' AND status = 'Active' ORDER BY category`
+      );
 
-      // Group sales by order ID
-      const salesMap = new Map();
-      rows.forEach(row => {
-        if (!salesMap.has(row.id)) {
-          salesMap.set(row.id, {
-            orderId: row.sale_number,
-            customerName: row.customer_name,
-            contact: row.contact,
-            orderDate: ReportsController.convertToPhilippineTime(row.created_at),
-            totalAmount: row.total,
-            paymentMethod: row.payment,
-            items: []
-          });
-        }
-
-        if (row.product_name) {
-          salesMap.get(row.id).items.push({
-            productName: row.product_name,
-            brand: row.brand,
-            quantity: row.quantity,
-            unitPrice: row.price,
-            totalPrice: row.subtotal
-          });
+      res.json({
+        success: true,
+        data: {
+          brands: brands.map(b => b.brand),
+          categories: categories.map(c => c.category)
         }
       });
-
-      // Add each sale and its items to CSV
-      salesMap.forEach(sale => {
-        if (sale.items.length === 0) {
-          csvRows.push([
-            sale.orderId,
-            sale.customerName,
-            sale.contact,
-            sale.orderDate,
-            sale.totalAmount,
-            sale.paymentMethod,
-            '',
-            '',
-            '',
-            '',
-            ''
-          ].join(','));
-        } else {
-          sale.items.forEach((item, index) => {
-            csvRows.push([
-              index === 0 ? sale.orderId : '',
-              index === 0 ? sale.customerName : '',
-              index === 0 ? sale.contact : '',
-              index === 0 ? sale.orderDate : '',
-              index === 0 ? sale.totalAmount : '',
-              index === 0 ? sale.paymentMethod : '',
-              item.productName,
-              item.brand,
-              item.quantity,
-              item.unitPrice,
-              item.totalPrice
-            ].join(','));
-          });
-        }
-      });
-
-      const csvContent = csvRows.join('\n');
-
-      // Set headers for CSV download
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', `attachment; filename="sales_report_${new Date().toISOString().split('T')[0]}.csv"`);
-
-      res.send(csvContent);
     } catch (error) {
-      console.error('Error exporting sales CSV:', error);
+      console.error('Error fetching filter options:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to export sales report'
-      });
-    }
-  }
-
-  // Export inventory report as CSV
-  static async exportInventoryReportCSV(req, res) {
-    try {
-      const { search, category, brand, status } = req.query;
-
-      // Build query for all products (no pagination for export)
-      let query = `
-        SELECT p.*, p.created_at, i.stock as current_stock,
-               CASE
-                 WHEN i.stock <= 0 THEN 'Out of Stock'
-                 WHEN i.stock <= 10 THEN 'Low Stock'
-                 ELSE 'In Stock'
-               END as stock_status
-        FROM products p
-        LEFT JOIN inventory i ON p.product_id = i.product_id
-        WHERE 1=1
-      `;
-      let params = [];
-
-      if (search) {
-        query += ' AND (p.name LIKE ? OR p.product_id LIKE ? OR p.brand LIKE ?)';
-        params.push(`%${search}%`, `%${search}%`, `%${search}%`);
-      }
-
-      if (category && category !== 'All Categories') {
-        query += ' AND p.category = ?';
-        params.push(category);
-      }
-
-      if (brand && brand !== 'All Brand') {
-        query += ' AND p.brand = ?';
-        params.push(brand);
-      }
-
-      if (status && status !== 'All Status') {
-        query += ' AND p.status = ?';
-        params.push(status);
-      }
-
-      query += ' ORDER BY p.created_at DESC';
-
-      const pool = getPool();
-      const [products] = await pool.execute(query, params);
-
-      // Create CSV content
-      const csvHeaders = [
-        'Product ID',
-        'Product Name',
-        'Brand',
-        'Category',
-        'Price',
-        'Current Stock',
-        'Stock Status',
-        'Status',
-        'Created Date'
-      ];
-
-      const csvRows = [csvHeaders.join(',')];
-
-      products.forEach(product => {
-        csvRows.push([
-          product.product_id,
-          product.name,
-          product.brand,
-          product.category,
-          product.price,
-          product.current_stock || 0,
-          product.stock_status,
-          product.status,
-          ReportsController.convertToPhilippineTime(product.created_at) || ''
-        ].join(','));
-      });
-
-      const csvContent = csvRows.join('\n');
-
-      // Set headers for CSV download
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', `attachment; filename="inventory_report_${new Date().toISOString().split('T')[0]}.csv"`);
-
-      res.send(csvContent);
-    } catch (error) {
-      console.error('Error exporting inventory CSV:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to export inventory report'
+        message: 'Failed to fetch filter options'
       });
     }
   }

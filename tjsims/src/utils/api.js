@@ -363,43 +363,13 @@ export const reportsAPI = {
     };
   },
 
-  // Export sales report as CSV
-  exportSalesReportCSV: async (filters = {}) => {
-    const params = new URLSearchParams();
-
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value) {
-        params.append(key, value);
-      }
-    });
-
-    const queryString = params.toString();
-    const url = `${API_BASE_URL}/reports/sales/export/csv${queryString ? `?${queryString}` : ''}`;
-
-    const response = await fetch(url, {
+  // Get filter options (brands and categories)
+  getFilterOptions: async () => {
+    const response = await fetch(`${API_BASE_URL}/reports/filter-options`, {
       credentials: 'include'
     });
     return handleResponse(response);
-  },
-
-  // Export inventory report as CSV
-  exportInventoryReportCSV: async (filters = {}) => {
-    const params = new URLSearchParams();
-
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value) {
-        params.append(key, value);
-      }
-    });
-
-    const queryString = params.toString();
-    const url = `${API_BASE_URL}/reports/inventory/export/csv${queryString ? `?${queryString}` : ''}`;
-
-    const response = await fetch(url, {
-      credentials: 'include'
-    });
-    return handleResponse(response);
-  },
+  }
 };
 
 // Dashboard API functions

@@ -9,10 +9,7 @@ router.get('/sales', ReportsController.getSalesReport);
 // Get inventory report data with pagination and filtering
 router.get('/inventory', ReportsController.getInventoryReport);
 
-// Export sales report as CSV
-router.get('/sales/export/csv', ReportsController.exportSalesReportCSV);
-
-// Export inventory report as CSV
-router.get('/inventory/export/csv', ReportsController.exportInventoryReportCSV);
+// Get filter options (brands and categories)
+router.get('/filter-options', ReportsController.getFilterOptions);
 
 export default router;

@@ -18,12 +18,12 @@ export class DashboardController {
         `SELECT COALESCE(SUM(total), 0) as total FROM sales WHERE YEARWEEK(created_at) = YEARWEEK(NOW()) AND (status IS NULL OR status <> 'Cancelled')`
       );
 
-      // Low stock items count - join products and inventory tables
+      // Low stock items count (including out of stock) - join products and inventory tables
       const [lowStock] = await pool.execute(
         `SELECT COUNT(*) as count
          FROM products p
          JOIN inventory i ON p.product_id = i.product_id
-         WHERE i.stock <= i.reorder_point AND i.stock > 0`
+         WHERE i.stock <= i.reorder_point`
       );
 
       // Pending orders count (exclude completed/cancelled)
@@ -79,7 +79,7 @@ export class DashboardController {
     }
   }
 
-  // Get low stock items
+  // Get low stock items (including out of stock)
   static async getLowStockItems(req, res) {
     try {
       const pool = getPool();
@@ -88,9 +88,9 @@ export class DashboardController {
         `SELECT p.product_id, p.name, i.stock as remaining, i.reorder_point as threshold
          FROM products p
          JOIN inventory i ON p.product_id = i.product_id
-         WHERE i.stock <= i.reorder_point AND i.stock > 0
-         ORDER BY i.stock ASC
-         LIMIT 5`
+         WHERE i.stock <= i.reorder_point
+         AND p.status = 'Active'
+         ORDER BY i.stock ASC`
       );
 
       res.json({
