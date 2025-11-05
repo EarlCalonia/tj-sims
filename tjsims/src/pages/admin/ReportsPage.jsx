@@ -3,7 +3,7 @@ import Navbar from '../../components/admin/Navbar';
 import PDFExportModal from '../../components/admin/PDFExportModal';
 import { generateSalesReportPDF, generateInventoryReportPDF } from '../../utils/pdfGenerator';
 import { reportsAPI } from '../../utils/api';
-import { BsDownload, BsFileEarmarkPdf } from 'react-icons/bs';
+import { BsFileEarmarkPdf } from 'react-icons/bs';
 import '../../styles/ReportsPage.css';
 
 const ReportsPage = () => {
@@ -16,6 +16,10 @@ const ReportsPage = () => {
   const [adminName] = useState('Admin User'); // You can get this from authentication context
   const [rangeLabel, setRangeLabel] = useState('Daily'); // Sales report granularity (UI only)
   const [stockStatus, setStockStatus] = useState('All Status'); // Inventory report filter
+  const [brandFilter, setBrandFilter] = useState('All Brand'); // Inventory brand filter
+  const [categoryFilter, setCategoryFilter] = useState('All Categories'); // Inventory category filter
+  const [brands, setBrands] = useState([]); // Available brands
+  const [categories, setCategories] = useState([]); // Available categories
 
   // API state
   const [salesData, setSalesData] = useState([]);
@@ -24,10 +28,27 @@ const ReportsPage = () => {
   const [error, setError] = useState(null);
   const [pagination, setPagination] = useState({});
 
+  // Fetch filter options on mount
+  useEffect(() => {
+    fetchFilterOptions();
+  }, []);
+
   // Fetch data from API
   useEffect(() => {
     fetchReportData();
-  }, [activeTab, startDate, endDate, currentPage, stockStatus]);
+  }, [activeTab, startDate, endDate, currentPage, stockStatus, brandFilter, categoryFilter]);
+
+  const fetchFilterOptions = async () => {
+    try {
+      const result = await reportsAPI.getFilterOptions();
+      if (result.success) {
+        setBrands(result.data.brands || []);
+        setCategories(result.data.categories || []);
+      }
+    } catch (error) {
+      console.error('Error fetching filter options:', error);
+    }
+  };
 
   const fetchReportData = async () => {
     try {
@@ -46,7 +67,13 @@ const ReportsPage = () => {
         setSalesData(result.sales || []);
         setPagination(result.pagination || {});
       } else {
-        const result = await reportsAPI.getInventoryReport({ ...filters, ...(stockStatus && stockStatus !== 'All Status' ? { stock_status: stockStatus } : {}) });
+        const inventoryFilters = {
+          ...filters,
+          ...(stockStatus && stockStatus !== 'All Status' ? { stock_status: stockStatus } : {}),
+          ...(brandFilter && brandFilter !== 'All Brand' ? { brand: brandFilter } : {}),
+          ...(categoryFilter && categoryFilter !== 'All Categories' ? { category: categoryFilter } : {})
+        };
+        const result = await reportsAPI.getInventoryReport(inventoryFilters);
         setInventoryData(result.inventory || []);
         setPagination(result.pagination || {});
       }
@@ -93,24 +120,6 @@ const ReportsPage = () => {
     setCurrentPage(page);
   };
 
-  // Handle export functions
-  const handleExportCSV = async () => {
-    try {
-      const filters = {
-        ...(startDate && { start_date: startDate }),
-        ...(endDate && { end_date: endDate })
-      };
-
-      if (activeTab === 'sales') {
-        await reportsAPI.exportSalesReportCSV(filters);
-      } else {
-        await reportsAPI.exportInventoryReportCSV({ ...filters, ...(stockStatus && stockStatus !== 'All Status' ? { stock_status: stockStatus } : {}) });
-      }
-    } catch (error) {
-      console.error('CSV export failed:', error);
-      alert('Failed to export CSV. Please try again.');
-    }
-  };
 
   const handleExportPDF = () => {
     setShowPDFModal(true);
@@ -129,10 +138,12 @@ const ReportsPage = () => {
         doc = await generateSalesReportPDF(allSalesResult.sales, exportStartDate, exportEndDate, adminName);
         doc.save(`Sales_Report_${exportStartDate}_to_${exportEndDate}.pdf`);
       } else {
-        // For inventory, fetch all inventory data honoring the current stock_status filter
+        // For inventory, fetch all inventory data honoring all current filters
         const allInventoryResult = await reportsAPI.getInventoryReport({
           limit: 10000,
-          ...(stockStatus && stockStatus !== 'All Status' ? { stock_status: stockStatus } : {})
+          ...(stockStatus && stockStatus !== 'All Status' ? { stock_status: stockStatus } : {}),
+          ...(brandFilter && brandFilter !== 'All Brand' ? { brand: brandFilter } : {}),
+          ...(categoryFilter && categoryFilter !== 'All Categories' ? { category: categoryFilter } : {})
         });
         doc = await generateInventoryReportPDF(allInventoryResult.inventory, exportStartDate, exportEndDate, adminName);
         doc.save(`Inventory_Report_${exportStartDate}_to_${exportEndDate}.pdf`);
@@ -211,24 +222,39 @@ const ReportsPage = () => {
                   </div>
                 )}
                 {activeTab === 'inventory' && (
-                  <div className="date-input-group">
-                    <label htmlFor="stock-status">Stock Status</label>
-                    <select id="stock-status" value={stockStatus} onChange={(e)=>setStockStatus(e.target.value)} className="date-input">
-                      <option>All Status</option>
-                      <option>In Stock</option>
-                      <option>Low Stock</option>
-                      <option>Out of Stock</option>
-                      <option>Overstock</option>
-                    </select>
-                  </div>
+                  <>
+                    <div className="date-input-group">
+                      <label htmlFor="brand-filter">Brand</label>
+                      <select id="brand-filter" value={brandFilter} onChange={(e)=>setBrandFilter(e.target.value)} className="date-input">
+                        <option>All Brand</option>
+                        {brands.map(brand => (
+                          <option key={brand} value={brand}>{brand}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="date-input-group">
+                      <label htmlFor="category-filter">Category</label>
+                      <select id="category-filter" value={categoryFilter} onChange={(e)=>setCategoryFilter(e.target.value)} className="date-input">
+                        <option>All Categories</option>
+                        {categories.map(category => (
+                          <option key={category} value={category}>{category}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="date-input-group">
+                      <label htmlFor="stock-status">Stock Status</label>
+                      <select id="stock-status" value={stockStatus} onChange={(e)=>setStockStatus(e.target.value)} className="date-input">
+                        <option>All Status</option>
+                        <option>In Stock</option>
+                        <option>Low Stock</option>
+                        <option>Out of Stock</option>
+                      </select>
+                    </div>
+                  </>
                 )}
               </div>
 
               <div className="export-buttons">
-                <button onClick={handleExportCSV} className="export-btn csv-btn">
-                  <BsDownload className="export-icon" />
-                  Export CSV
-                </button>
                 <button onClick={handleExportPDF} className="export-btn pdf-btn">
                   <BsFileEarmarkPdf className="export-icon" />
                   Export PDF

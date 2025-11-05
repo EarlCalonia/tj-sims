@@ -54,7 +54,10 @@ const InventoryPage = () => {
 
       const response = await inventoryAPI.getProducts(filters);
       if (response.success) {
-        const productsWithInventory = response.data.products || [];
+        const productsWithInventory = (response.data.products || []).map(product => ({
+          ...product,
+          reorderPoint: product.reorder_point ?? product.reorderPoint ?? 10
+        }));
         console.log('Products with inventory:', productsWithInventory);
         setProducts(productsWithInventory);
       } else {
@@ -131,15 +134,11 @@ const InventoryPage = () => {
   // Handle edit product
   const handleEditProduct = (product) => {
     setIsAddMode(false);
+    const existingReorderPoint = product.reorderPoint ?? product.reorder_point ?? 10;
     setSelectedProduct({
       ...product,
-      quantityToAdd: 0,
-      newTotal: product.stock,
-      reorderPoint: product.reorderPoint || 10,
-      transactionDate: new Date().toISOString().slice(0,16),
-      personName: localStorage.getItem('username') || 'Admin',
-      serial: '',
-      supplierSource: ''
+      currentReorderPoint: existingReorderPoint,
+      newReorderPoint: existingReorderPoint
     });
     setIsModalOpen(true);
   };
@@ -234,7 +233,7 @@ const InventoryPage = () => {
     }
   };
 
-  // Handle form submission for stock update
+  // Handle form submission for reorder point update
   const handleSubmitProduct = async (e) => {
     e.preventDefault();
     if (isSubmitting) return;
@@ -243,11 +242,11 @@ const InventoryPage = () => {
       setIsSubmitting(true);
 
       const payload = {
-        quantityToAdd: selectedProduct.quantityToAdd,
-        reorderPoint: selectedProduct.reorderPoint,
-        notes: `Serial: ${selectedProduct.serial || '-'} | Supplier: ${selectedProduct.supplierSource || '-'}`,
-        createdBy: selectedProduct.personName,
-        transactionDate: selectedProduct.transactionDate
+        quantityToAdd: 0,
+        reorderPoint: selectedProduct.newReorderPoint,
+        notes: 'Reorder point updated',
+        createdBy: localStorage.getItem('username') || 'Admin',
+        transactionDate: new Date().toISOString()
       };
 
       const response = await inventoryAPI.updateStock(selectedProduct.product_id, payload);
@@ -258,8 +257,8 @@ const InventoryPage = () => {
       }
       setIsModalOpen(false);
     } catch (error) {
-      console.error('Error updating stock:', error);
-      alert('Error updating stock: ' + error.message);
+      console.error('Error updating reorder point:', error);
+      alert('Error updating reorder point: ' + error.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -268,22 +267,10 @@ const InventoryPage = () => {
   // Handle input changes in modal
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    if (name === 'quantityToAdd') {
-      const numValue = parseInt(value) || 0;
+    if (name === 'newReorderPoint') {
       setSelectedProduct({
         ...selectedProduct,
-        quantityToAdd: numValue,
-        newTotal: selectedProduct.stock + numValue
-      });
-    } else if (name === 'reorderPoint') {
-      setSelectedProduct({
-        ...selectedProduct,
-        [name]: parseInt(value) || 0
-      });
-    } else if (name === 'transactionDate' || name === 'personName' || name === 'serial' || name === 'supplierSource') {
-      setSelectedProduct({
-        ...selectedProduct,
-        [name]: value
+        newReorderPoint: parseInt(value) || 0
       });
     }
   };
@@ -668,7 +655,7 @@ const InventoryPage = () => {
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
-              <h2>{isAddMode ? 'Add New Product' : 'Edit Product'}</h2>
+              <h2>{isAddMode ? 'Add New Product' : 'Edit Reorder Point'}</h2>
               <button
                 onClick={() => setIsModalOpen(false)}
                 className="close-btn"
@@ -689,118 +676,50 @@ const InventoryPage = () => {
                   />
                 </div>
 
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Current Stock</label>
-                    <input
-                      type="text"
-                      value={selectedProduct?.stock || ''}
-                      readOnly
-                      className="form-input readonly"
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Add Quantity</label>
-                    <input
-                      type="number"
-                      name="quantityToAdd"
-                      value={selectedProduct?.quantityToAdd || ''}
-                      onChange={handleInputChange}
-                      min="0"
-                      className="form-input"
-                      placeholder="Enter quantity to add"
-                      required
-                    />
-                  </div>
+                <div className="form-group">
+                  <label>Current Stock</label>
+                  <input
+                    type="text"
+                    value={selectedProduct?.stock || ''}
+                    readOnly
+                    className="form-input readonly"
+                  />
                 </div>
 
-                <>
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label>New Total</label>
-                        <input
-                          type="text"
-                          value={selectedProduct?.newTotal || selectedProduct?.stock || ''}
-                          readOnly
-                          className="form-input readonly"
-                        />
-                      </div>
+                <div className="form-group">
+                  <label>Current Reorder Point</label>
+                  <input
+                    type="text"
+                    value={selectedProduct?.currentReorderPoint || ''}
+                    readOnly
+                    className="form-input readonly"
+                  />
+                </div>
 
-                      <div className="form-group">
-                        <label>Reorder Point</label>
-                        <input
-                          type="number"
-                          name="reorderPoint"
-                          value={selectedProduct?.reorderPoint || ''}
-                          onChange={handleInputChange}
-                          min="0"
-                          className="form-input"
-                          placeholder="Alert threshold"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label>Transaction Date & Time</label>
-                        <input
-                          type="datetime-local"
-                          name="transactionDate"
-                          value={selectedProduct?.transactionDate || ''}
-                          onChange={handleInputChange}
-                          className="form-input"
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>Person</label>
-                        <input
-                          type="text"
-                          name="personName"
-                          value={selectedProduct?.personName || ''}
-                          onChange={handleInputChange}
-                          className="form-input"
-                          placeholder="Enter person"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label>Serial Number</label>
-                        <input
-                          type="text"
-                          name="serial"
-                          value={selectedProduct?.serial || ''}
-                          onChange={handleInputChange}
-                          className="form-input"
-                          placeholder="Enter serial"
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>Supplier / Source</label>
-                        <input
-                          type="text"
-                          name="supplierSource"
-                          value={selectedProduct?.supplierSource || ''}
-                          onChange={handleInputChange}
-                          className="form-input"
-                          placeholder="Enter supplier or source"
-                        />
-                      </div>
-                    </div>
+                <div className="form-group">
+                  <label>New Reorder Point</label>
+                  <input
+                    type="number"
+                    name="newReorderPoint"
+                    value={selectedProduct?.newReorderPoint || ''}
+                    onChange={handleInputChange}
+                    min="0"
+                    className="form-input"
+                    placeholder="Enter new reorder point"
+                    required
+                  />
+                </div>
 
                 <div className="alert-text">
                   <p>Alert when stock falls below this level</p>
                 </div>
-              </>
               </div>
 
               <div className="modal-actions">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="cancel-btn">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="cancel-btn" style={{ backgroundColor: 'white', color: '#333', border: '1px solid #ddd' }}>
                   Cancel
                 </button>
-                <button type="submit" className="confirm-btn">
+                <button type="submit" className="confirm-btn" style={{ backgroundColor: '#28a745', color: 'white' }}>
                   Confirm
                 </button>
               </div>
