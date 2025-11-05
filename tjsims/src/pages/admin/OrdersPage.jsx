@@ -207,6 +207,24 @@ const OrderModal = ({ order, isOpen, onClose, onSave, ordersWithItems }) => {
                   <input type="text" value={saleItems.length} readOnly className="form-input readonly" />
                 </div>
               </div>
+              {order.delivery_proof && order.status === 'Completed' && (
+                <div className="form-group" style={{ marginTop: '16px' }}>
+                  <label>Proof of Delivery</label>
+                  <div style={{ marginTop: '8px' }}>
+                    <img 
+                      src={`http://localhost:5000${order.delivery_proof}`} 
+                      alt="Delivery Proof" 
+                      style={{ 
+                        maxWidth: '100%', 
+                        maxHeight: '400px', 
+                        borderRadius: '8px', 
+                        border: '1px solid #ddd',
+                        display: 'block'
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

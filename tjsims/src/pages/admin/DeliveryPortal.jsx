@@ -14,8 +14,8 @@ const DeliveryPortal = () => {
   const [error, setError] = useState('');
   const ordersPerPage = 10;
 
-  const riderName = localStorage.getItem('userName') || localStorage.getItem('userEmail') || 'Rider';
-  const riderAvatar = localStorage.getItem('userAvatar');
+  const riderName = localStorage.getItem('username') || localStorage.getItem('userEmail') || 'Rider';
+  const riderAvatar = localStorage.getItem('avatar');
 
   useEffect(() => {
     let mounted = true;
@@ -36,7 +36,8 @@ const DeliveryPortal = () => {
           paymentMethod: s.payment,
           orderStatus: s.status === 'Pending' ? 'Processing' : (s.status === 'Processing' ? 'Out for delivery' : s.status),
           address: s.address || '',
-          contact: s.contact || ''
+          contact: s.contact || '',
+          deliveryProof: s.delivery_proof || null
         }));
         if (mounted) setOrders(mapped);
       })
@@ -55,11 +56,18 @@ const DeliveryPortal = () => {
 
   const handleViewOrder = (order) => {
     setSelectedOrder(order);
-    setIsModalOpen(true);
+    setIsViewModalOpen(true);
+  };
+
+  const handleCompleteDelivery = (order) => {
+    setSelectedOrder(order);
+    setDeliveryProof(null);
+    setIsCompleteModalOpen(true);
   };
 
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
   const [deliveryProof, setDeliveryProof] = useState(null);
   const [uploadingProof, setUploadingProof] = useState(false);
 
@@ -70,27 +78,60 @@ const DeliveryPortal = () => {
   const handleOrderStatusChange = async (orderId, newStatus) => {
     const target = orders.find(o => o.id === orderId);
     if (!target) return;
-    
-    // Require delivery proof before completing
-    if (newStatus === 'Completed' && !deliveryProof) {
-      alert('Please upload a delivery proof photo before marking as Completed');
-      return;
-    }
 
     const backendStatus = newStatus === 'Out for delivery' ? 'Processing' : newStatus;
     try {
-      setUploadingProof(true);
-      
-      // Upload delivery proof if completing
-      if (newStatus === 'Completed' && deliveryProof) {
-        await salesAPI.uploadDeliveryProof(target.saleId, deliveryProof);
-      }
-      
       await salesAPI.updateSale(target.saleId, { status: backendStatus });
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, orderStatus: newStatus } : o));
-      setDeliveryProof(null);
     } catch (e) {
       alert(`Failed to update status: ${e.message}`);
+    }
+  };
+
+  const handleSubmitCompleteDelivery = async (e) => {
+    e.preventDefault();
+    if (!selectedOrder) return;
+
+    if (!deliveryProof) {
+      alert('Please upload a delivery proof photo before completing the delivery');
+      return;
+    }
+
+    try {
+      setUploadingProof(true);
+      
+      // Upload delivery proof
+      await salesAPI.uploadDeliveryProof(selectedOrder.saleId, deliveryProof);
+      
+      // Update status to Completed
+      await salesAPI.updateSale(selectedOrder.saleId, { status: 'Completed' });
+      
+      // Refresh orders to get updated data with delivery proof
+      const list = await salesAPI.getSales({ status: 'Processing' });
+      const filtered = (list || []).filter(s => {
+        const addr = (s.address || '').toLowerCase();
+        return addr.includes('pampanga') || addr.includes('bulacan') || addr.includes('manila');
+      });
+      const mapped = filtered.map(s => ({
+        id: s.sale_number,
+        saleId: s.id,
+        customerName: s.customer_name,
+        orderDate: new Date(s.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }),
+        productList: 'See details',
+        paymentStatus: s.payment_status,
+        paymentMethod: s.payment,
+        orderStatus: s.status === 'Pending' ? 'Processing' : (s.status === 'Processing' ? 'Out for delivery' : s.status),
+        address: s.address || '',
+        contact: s.contact || '',
+        deliveryProof: s.delivery_proof || null
+      }));
+      setOrders(mapped);
+      
+      setDeliveryProof(null);
+      setIsCompleteModalOpen(false);
+      alert('Delivery completed successfully!');
+    } catch (e) {
+      alert(`Failed to complete delivery: ${e.message}`);
     } finally {
       setUploadingProof(false);
     }
@@ -141,7 +182,12 @@ const DeliveryPortal = () => {
         <div className="navbar-right">
           <div className="rider-profile">
             {riderAvatar ? (
-              <img src={riderAvatar} alt="Rider" className="profile-icon" style={{ width: 28, height: 28, borderRadius: '50%' }} />
+              <img 
+                src={riderAvatar.startsWith('http') ? riderAvatar : `http://localhost:5000${riderAvatar}`} 
+                alt="Rider" 
+                className="profile-avatar" 
+                style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', border: '2px solid #2478bd' }} 
+              />
             ) : (
               <div className="profile-icon">
                 <i className="fas fa-user-circle"></i>
@@ -218,7 +264,6 @@ const DeliveryPortal = () => {
                       >
                         <option value="Processing">Processing</option>
                         <option value="Out for delivery">Out for delivery</option>
-                        <option value="Completed">Completed</option>
                       </select>
                     ) : (
                       <span className={`status-badge ${getOrderStatusClass(order.orderStatus)}`}>
@@ -227,9 +272,32 @@ const DeliveryPortal = () => {
                     )}
                   </td>
                   <td>
-                    <button className="view-btn" onClick={() => handleViewOrder(order)} title="View Details">
-                      <i className="fas fa-eye"></i> View
-                    </button>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                      <button className="view-btn" onClick={() => handleViewOrder(order)} title="View Details">
+                        <i className="fas fa-eye"></i> <span>View</span>
+                      </button>
+                      {order.orderStatus !== 'Completed' && (
+                        <button 
+                          className="complete-delivery-btn" 
+                          onClick={() => handleCompleteDelivery(order)} 
+                          title="Complete Delivery"
+                          style={{ 
+                            backgroundColor: '#28a745', 
+                            color: 'white', 
+                            border: 'none', 
+                            padding: '6px 12px', 
+                            borderRadius: '4px', 
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}
+                        >
+                          <i className="fas fa-check-circle"></i> <span>Complete</span>
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -251,12 +319,13 @@ const DeliveryPortal = () => {
         </div>
       </div>
 
-      {isModalOpen && selectedOrder && (
-        <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
+      {/* View Modal */}
+      {isViewModalOpen && selectedOrder && (
+        <div className="modal-overlay" onClick={() => setIsViewModalOpen(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Order Details - {selectedOrder.id}</h2>
-              <button className="close-btn" onClick={() => setIsModalOpen(false)}>
+              <button className="close-btn" onClick={() => setIsViewModalOpen(false)}>
                 <i className="fas fa-times"></i>
               </button>
             </div>
@@ -276,14 +345,45 @@ const DeliveryPortal = () => {
                 <span className="detail-label">Order Status:</span>
                 <span className={`status-badge ${getOrderStatusClass(selectedOrder.orderStatus)}`}>{selectedOrder.orderStatus}</span>
               </div>
-              {selectedOrder.orderStatus !== 'Completed' && (
+              {selectedOrder.orderStatus === 'Completed' && selectedOrder.deliveryProof && (
                 <div className="detail-row" style={{ marginTop: '20px', flexDirection: 'column', alignItems: 'flex-start' }}>
-                  <span className="detail-label" style={{ marginBottom: '8px' }}>Delivery Proof Photo (Required for Completion):</span>
+                  <span className="detail-label" style={{ marginBottom: '8px' }}>Proof of Delivery:</span>
+                  <img 
+                    src={`http://localhost:5000${selectedOrder.deliveryProof}`} 
+                    alt="Delivery Proof" 
+                    style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '8px', border: '1px solid #ddd' }}
+                  />
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="close-modal-btn" onClick={() => setIsViewModalOpen(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Complete Delivery Modal */}
+      {isCompleteModalOpen && selectedOrder && (
+        <div className="modal-overlay" onClick={() => setIsCompleteModalOpen(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Complete Delivery - {selectedOrder.id}</h2>
+              <button className="close-btn" onClick={() => setIsCompleteModalOpen(false)}>
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+            <form onSubmit={handleSubmitCompleteDelivery}>
+              <div className="modal-body">
+                <div className="detail-row" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                  <span className="detail-label" style={{ marginBottom: '8px' }}>Upload Proof of Delivery *</span>
+                  <p style={{ fontSize: '14px', color: '#666', marginBottom: '12px' }}>Please upload an image showing proof of delivery before completing.</p>
                   <input 
                     type="file" 
                     accept="image/*" 
                     onChange={handleProofFileChange}
                     style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px', width: '100%' }}
+                    required
                   />
                   {deliveryProof && (
                     <span style={{ marginTop: '8px', color: '#28a745', fontSize: '14px' }}>
@@ -291,11 +391,34 @@ const DeliveryPortal = () => {
                     </span>
                   )}
                 </div>
-              )}
-            </div>
-            <div className="modal-footer">
-              <button className="close-modal-btn" onClick={() => setIsModalOpen(false)}>Close</button>
-            </div>
+              </div>
+              <div className="modal-footer">
+                <button 
+                  type="button" 
+                  className="cancel-btn" 
+                  onClick={() => setIsCompleteModalOpen(false)}
+                  style={{ padding: '10px 20px', borderRadius: '4px', border: '1px solid #ddd', backgroundColor: '#fff', cursor: 'pointer' }}
+                >
+                  Back
+                </button>
+                <button 
+                  type="submit" 
+                  className="confirm-btn" 
+                  disabled={uploadingProof}
+                  style={{ 
+                    padding: '10px 20px', 
+                    borderRadius: '4px', 
+                    border: 'none', 
+                    backgroundColor: '#28a745', 
+                    color: 'white', 
+                    cursor: uploadingProof ? 'not-allowed' : 'pointer',
+                    opacity: uploadingProof ? 0.6 : 1
+                  }}
+                >
+                  {uploadingProof ? 'Completing...' : 'Complete Delivery'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
