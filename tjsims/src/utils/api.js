@@ -417,4 +417,69 @@ export const dashboardAPI = {
     });
     return handleResponse(response);
   },
+
+  // Get fast moving products
+  getFastMovingProducts: async () => {
+    const response = await fetch(`${API_BASE_URL}/dashboard/fast-moving`, {
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  },
+
+  // Get slow moving products
+  getSlowMovingProducts: async () => {
+    const response = await fetch(`${API_BASE_URL}/dashboard/slow-moving`, {
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  },
+};
+
+// Returns API functions
+export const returnsAPI = {
+  // Process a return
+  processReturn: async (returnData) => {
+    const isFormData = returnData instanceof FormData;
+    const response = await fetch(`${API_BASE_URL}/returns/process`, {
+      method: 'POST',
+      headers: isFormData ? {} : { 'Content-Type': 'application/json' },
+      body: isFormData ? returnData : JSON.stringify(returnData),
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  },
+
+  // Get returns for a specific order
+  getReturnsByOrder: async (orderId) => {
+    const response = await fetch(`${API_BASE_URL}/returns/order/${orderId}`, {
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  },
+
+  // Get all returns with filters
+  getAllReturns: async (filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.startDate) params.append('startDate', filters.startDate);
+    if (filters.endDate) params.append('endDate', filters.endDate);
+    if (filters.returnReason) params.append('returnReason', filters.returnReason);
+    if (filters.limit) params.append('limit', filters.limit);
+    if (filters.offset) params.append('offset', filters.offset);
+
+    const queryString = params.toString();
+    const url = `${API_BASE_URL}/returns${queryString ? `?${queryString}` : ''}`;
+
+    const response = await fetch(url, {
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  },
+
+  // Get return statistics
+  getReturnStats: async () => {
+    const response = await fetch(`${API_BASE_URL}/returns/stats`, {
+      credentials: 'include'
+    });
+    return handleResponse(response);
+  }
 };

@@ -38,11 +38,12 @@ const App = () => {
     <Router>
       <Routes>
         {/* Client Routes */}
-        <Route path="/" element={<LandingPage />} />
+        <Route path="/" element={<Products />} />
         <Route path="/products" element={<Products />} />
         <Route path="/products/:id" element={<ProductDetails />} />
         <Route path="/order-status" element={<OrderStatus />} />
         <Route path="/contact-us" element={<ContactUs />} />
+        <Route path="/home" element={<LandingPage />} /> {/* Kept for reference */}
         
         {/* Admin Routes */}
         <Route path="/admin/login" element={<LoginPage />} />

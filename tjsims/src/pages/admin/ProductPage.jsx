@@ -143,6 +143,7 @@ const ProductPage = () => {
       price: 0,
       status: 'Active',
       description: '',
+      vehicle_compatibility: '',
       image: null
     });
     setIsModalOpen(true);
@@ -171,6 +172,7 @@ const ProductPage = () => {
       formData.append('price', selectedProduct.price);
       formData.append('status', selectedProduct.status);
       formData.append('description', selectedProduct.description);
+      formData.append('vehicle_compatibility', selectedProduct.vehicle_compatibility || '');
       if (selectedProduct.image && selectedProduct.image instanceof File) {
         formData.append('image', selectedProduct.image);
       }
@@ -190,6 +192,7 @@ const ProductPage = () => {
           newFd.append('price', selectedProduct.price);
           newFd.append('status', selectedProduct.status);
           newFd.append('description', selectedProduct.description);
+          newFd.append('vehicle_compatibility', selectedProduct.vehicle_compatibility || '');
           if (selectedProduct.image && selectedProduct.image instanceof File) {
             newFd.append('image', selectedProduct.image);
           }
@@ -525,6 +528,21 @@ const ProductPage = () => {
                     placeholder="Enter product description"
                     rows="4"
                   />
+                </div>
+
+                <div className="form-group">
+                  <label>Vehicle Compatibility</label>
+                  <textarea
+                    name="vehicle_compatibility"
+                    value={selectedProduct?.vehicle_compatibility || ''}
+                    onChange={handleInputChange}
+                    className="form-textarea"
+                    placeholder="Enter compatible vehicles (comma-separated)&#10;Example: Toyota Hilux 2015-2020, Ford Ranger 2018-2022, Mitsubishi Strada 2019-2023"
+                    rows="3"
+                  />
+                  <small style={{ color: '#6c757d', fontSize: '0.85rem', marginTop: '4px', display: 'block' }}>
+                    Tip: Separate multiple vehicles with commas
+                  </small>
                 </div>
 
                 <div className="form-group">

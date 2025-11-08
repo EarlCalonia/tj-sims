@@ -330,6 +330,46 @@
   gap: 12px;
 }
 
+.customer-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.save-customer-btn,
+.remove-customer-btn {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+}
+
+.save-customer-btn {
+  background-color: #28a745;
+  color: white;
+}
+
+.save-customer-btn:hover {
+  background-color: #1e7e34;
+}
+
+.remove-customer-btn {
+  background-color: #dc3545;
+  color: white;
+}
+
+.remove-customer-btn:hover:not(:disabled) {
+  background-color: #bd2130;
+}
+
+.remove-customer-btn:disabled {
+  background-color: #f5c6cb;
+  cursor: not-allowed;
+  color: #721c24;
+}
+
 .info-row {
   display: flex;
   flex-direction: column;
@@ -395,7 +435,11 @@
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 11px;
+}
+
+.form-row + .form-row {
+  margin-top: 16px;
 }
 
 .form-select {

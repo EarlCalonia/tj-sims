@@ -6,13 +6,15 @@ import { productAPI, salesAPI, inventoryAPI } from '../../utils/api';
 import { generateSaleReceipt } from '../../utils/pdfGenerator';
 
 const SalesPage = () => {
+  const SAVED_CUSTOMERS_KEY = 'sales_saved_customers';
+
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState([]);
   const [lastName, setLastName] = useState('');
   const [firstName, setFirstName] = useState('');
   const [middleName, setMiddleName] = useState('');
   const [contactNumber, setContactNumber] = useState('');
-  const [paymentOption, setPaymentOption] = useState('Cash');
+  const [paymentOption, setPaymentOption] = useState('');
   const [shippingOption, setShippingOption] = useState('In-Store Pickup');
   const [orderStatus, setOrderStatus] = useState('Pending');
   const [paymentStatus, setPaymentStatus] = useState('Paid');
@@ -20,6 +22,18 @@ const SalesPage = () => {
   const [addressDetails, setAddressDetails] = useState('');
   const [tenderedAmount, setTenderedAmount] = useState('');
   const [gcashRef, setGcashRef] = useState('');
+
+  const [savedCustomers, setSavedCustomers] = useState(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const stored = window.localStorage.getItem(SAVED_CUSTOMERS_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch (err) {
+      console.error('Failed to load saved customers:', err);
+      return [];
+    }
+  });
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
 
   // New state for API integration
   const [products, setProducts] = useState([]);
@@ -32,6 +46,20 @@ const SalesPage = () => {
   useEffect(() => {
     fetchProductsAndInventory();
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(SAVED_CUSTOMERS_KEY, JSON.stringify(savedCustomers));
+  }, [savedCustomers]);
+
+  useEffect(() => {
+    if (!paymentOption) {
+      setTenderedAmount('');
+    }
+    if (paymentOption !== 'GCash') {
+      setGcashRef('');
+    }
+  }, [paymentOption]);
 
   const fetchProductsAndInventory = async () => {
     try {
@@ -222,6 +250,84 @@ const SalesPage = () => {
     }
   };
 
+  const fillCustomerFields = (customer) => {
+    setLastName(customer.lastName || '');
+    setFirstName(customer.firstName || '');
+    setMiddleName(customer.middleName || '');
+    setContactNumber(customer.contactNumber || '');
+    setAddress(customer.address || 'Manila');
+    setAddressDetails(customer.addressDetails || '');
+  };
+
+  const handleSelectCustomer = (customerId) => {
+    setSelectedCustomerId(customerId);
+    if (!customerId) {
+      return;
+    }
+
+    const customer = savedCustomers.find(item => item.id === customerId);
+    if (customer) {
+      fillCustomerFields(customer);
+    }
+  };
+
+  const handleSaveCustomer = () => {
+    const normalizedLastName = lastName.trim();
+    const normalizedFirstName = firstName.trim();
+    const normalizedContact = contactNumber.trim();
+
+    if (!normalizedLastName || !normalizedFirstName || !normalizedContact) {
+      alert('Please provide last name, first name, and contact number before saving.');
+      return;
+    }
+
+    const existingIndex = savedCustomers.findIndex(
+      customer => customer.id === selectedCustomerId || customer.contactNumber === normalizedContact
+    );
+
+    const id = existingIndex >= 0
+      ? savedCustomers[existingIndex].id
+      : Date.now().toString();
+
+    const updatedCustomer = {
+      id,
+      lastName: normalizedLastName,
+      firstName: normalizedFirstName,
+      middleName: middleName.trim(),
+      contactNumber: normalizedContact,
+      address,
+      addressDetails: addressDetails.trim()
+    };
+
+    setSavedCustomers(prev => {
+      const updated = [...prev];
+      if (existingIndex >= 0) {
+        updated[existingIndex] = updatedCustomer;
+      } else {
+        updated.push(updatedCustomer);
+      }
+      return updated.sort((a, b) => {
+        const lastCompare = a.lastName.localeCompare(b.lastName);
+        if (lastCompare !== 0) return lastCompare;
+        return a.firstName.localeCompare(b.firstName);
+      });
+    });
+
+    setSelectedCustomerId(id);
+    alert('Customer saved successfully.');
+  };
+
+  const handleRemoveCustomer = () => {
+    if (!selectedCustomerId) {
+      alert('Please select a saved customer to remove.');
+      return;
+    }
+
+    setSavedCustomers(prev => prev.filter(customer => customer.id !== selectedCustomerId));
+    setSelectedCustomerId('');
+    alert('Saved customer removed.');
+  };
+
   const getCartTotal = () => {
     return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
   };
@@ -269,11 +375,17 @@ const SalesPage = () => {
     setAddressDetails('');
     setTenderedAmount('');
     setGcashRef('');
+    setSelectedCustomerId('');
+    setPaymentOption('');
   };
 
   const confirmSale = async () => {
     if (cart.length === 0) {
       alert('Please add items to cart before confirming sale');
+      return;
+    }
+    if (!paymentOption) {
+      alert('Please select a payment option before confirming sale');
       return;
     }
     const fullName = `${firstName} ${middleName} ${lastName}`.replace(/\s+/g, ' ').trim();
@@ -443,7 +555,7 @@ const SalesPage = () => {
                               className="add-to-cart-btn"
                             >
                               <BsCartPlus className="cart-icon" />
-                              Add to Cart
+                              Add to Sale
                             </button>
                           </td>
                         </tr>
@@ -459,13 +571,13 @@ const SalesPage = () => {
               {/* Shopping Cart Section */}
               <div className="cart-section">
                 <div className="cart-header">
-                  <h2>Shopping Cart</h2>
+                  <h2>Current Sale</h2>
                 </div>
 
                 <div className="cart-items">
                   {cart.length === 0 ? (
                     <div className="empty-cart">
-                      <p>Your cart is empty</p>
+                      <p>No items in current sale.</p>
                     </div>
                   ) : (
                     <>
@@ -518,6 +630,37 @@ const SalesPage = () => {
               <div className="customer-section">
                 <h2>Customer Information</h2>
                 <div className="customer-info">
+                  <div className="info-row">
+                    <label>Saved Customers:</label>
+                    <select
+                      value={selectedCustomerId}
+                      onChange={(e) => handleSelectCustomer(e.target.value)}
+                      className="info-input"
+                      disabled={savedCustomers.length === 0}
+                    >
+                      <option value="">
+                        {savedCustomers.length === 0 ? 'No saved customers yet' : 'Select saved customer'}
+                      </option>
+                      {savedCustomers.map(customer => (
+                        <option key={customer.id} value={customer.id}>
+                          {`${customer.lastName}, ${customer.firstName} - ${customer.contactNumber}`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="customer-actions">
+                    <button type="button" onClick={handleSaveCustomer} className="save-customer-btn">
+                      Save Customer
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRemoveCustomer}
+                      className="remove-customer-btn"
+                      disabled={!selectedCustomerId}
+                    >
+                      Remove Selected
+                    </button>
+                  </div>
                   <div className="info-row">
                     <label>Last Name:</label>
                     <input
@@ -598,6 +741,7 @@ const SalesPage = () => {
                       onChange={(e) => setPaymentOption(e.target.value)}
                       className="form-select"
                     >
+                      <option value="">Select payment option</option>
                       <option value="Cash">Cash</option>
                       <option value="GCash">GCash</option>
                     </select>
@@ -630,7 +774,8 @@ const SalesPage = () => {
                       value={tenderedAmount}
                       onChange={(e) => setTenderedAmount(e.target.value)}
                       className="form-input"
-                      placeholder={paymentOption === 'Cash' ? 'Cash tendered' : 'Amount paid'}
+                      placeholder={!paymentOption ? 'Select payment option first' : paymentOption === 'Cash' ? 'Cash tendered' : 'Amount paid'}
+                      disabled={!paymentOption}
                     />
                   </div>
                   {paymentOption === 'GCash' && (
@@ -673,7 +818,7 @@ const SalesPage = () => {
             })()}
             <button
               onClick={confirmSale}
-              disabled={submitting || cart.length === 0 || Number.isNaN(parseFloat(tenderedAmount)) || parseFloat(tenderedAmount) < getCartTotal()}
+              disabled={submitting || cart.length === 0 || !paymentOption || Number.isNaN(parseFloat(tenderedAmount)) || parseFloat(tenderedAmount) < getCartTotal()}
               className="confirm-btn"
             >
               {submitting ? 'Processing...' : 'Confirm Sale'}

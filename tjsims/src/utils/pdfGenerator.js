@@ -67,8 +67,36 @@ const formatDate = (dateString) => {
   });
 };
 
+// Helper to format period text based on range label
+const formatPeriodText = (startDate, endDate, rangeLabel) => {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  
+  if (rangeLabel === 'Weekly') {
+    // Check if dates span different months
+    if (start.getMonth() !== end.getMonth()) {
+      // Format: Nov 28 - Dec 4, 2025
+      const startMonth = start.toLocaleDateString('en-US', { month: 'short' });
+      const endMonth = end.toLocaleDateString('en-US', { month: 'short' });
+      const year = end.getFullYear();
+      return `${startMonth} ${start.getDate()} - ${endMonth} ${end.getDate()}, ${year}`;
+    } else {
+      // Format: Nov 1–7, 2025 (same month)
+      const monthName = start.toLocaleDateString('en-US', { month: 'short' });
+      const year = start.getFullYear();
+      return `${monthName} ${start.getDate()}–${end.getDate()}, ${year}`;
+    }
+  } else if (rangeLabel === 'Monthly') {
+    // Format: November 2025
+    return start.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  } else {
+    // Daily or custom range: November 1, 2025 - November 3, 2025
+    return `${formatDate(startDate)} - ${formatDate(endDate)}`;
+  }
+};
+
 // Generate Sales Report PDF
-export const generateSalesReportPDF = async (salesData, startDate, endDate, adminName) => {
+export const generateSalesReportPDF = async (salesData, startDate, endDate, adminName, rangeLabel = 'Daily') => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const centerX = pageWidth / 2;
@@ -97,7 +125,7 @@ if (logoDataUrl) {
   const dateY = titleY + 7; // 7 = space below title
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Period: ${formatDate(startDate)} - ${formatDate(endDate)}`, centerX, dateY, { align: 'center' });
+  doc.text(`Period: ${formatPeriodText(startDate, endDate, rangeLabel)}`, centerX, dateY, { align: 'center' });
 }
 
   // Filter data by date range

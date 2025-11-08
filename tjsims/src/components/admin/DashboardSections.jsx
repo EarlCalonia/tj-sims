@@ -29,78 +29,103 @@ ChartJS.register(
   ArcElement
 );
 
-const RecentSales = () => {
-  const [salesData, setSalesData] = useState([]);
+const ProductMovement = () => {
+  const [fastMoving, setFastMoving] = useState([]);
+  const [slowMoving, setSlowMoving] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchRecentSales();
+    fetchProducts();
   }, []);
 
-  const fetchRecentSales = async () => {
+  const fetchProducts = async () => {
     try {
       setLoading(true);
-      const result = await dashboardAPI.getRecentSales();
-      if (result.success) {
-        setSalesData(result.data);
-      }
+      const [fastResult, slowResult] = await Promise.all([
+        dashboardAPI.getFastMovingProducts(),
+        dashboardAPI.getSlowMovingProducts()
+      ]);
+      if (fastResult.success) setFastMoving(fastResult.data);
+      if (slowResult.success) setSlowMoving(slowResult.data);
     } catch (error) {
-      console.error('Error fetching recent sales:', error);
+      console.error('Error fetching product movement:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const formatDate = (dateString) => {
-    const options = { year: 'numeric', month: 'short', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString('en-US', options);
-  };
-
-  const getStatusClass = (status) => {
-    return status.toLowerCase();
-  };
-
   return (
     <div className="dashboard-card">
       <div className="card-header">
-        <h3>Recent Sales Transactions</h3>
-        <button className="view-all-btn" onClick={() => navigate('/admin/orders')}>
+        <h3>Product Movement</h3>
+        <button className="view-all-btn" onClick={() => navigate('/admin/inventory')}>
           View All <BsArrowRight />
         </button>
       </div>
-      <div className="recent-sales">
+      <div className="product-movement-container">
         {loading ? (
           <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>
-        ) : salesData.length === 0 ? (
-          <div style={{ padding: '2rem', textAlign: 'center' }}>No recent sales</div>
         ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Customer</th>
-                <th>Products</th>
-                <th className="text-end">Total Sales</th>
-                <th className="text-center">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {salesData.map((sale) => (
-                <tr key={sale.id}>
-                  <td>{formatDate(sale.date)}</td>
-                  <td>{sale.customer_name}</td>
-                  <td>{sale.products}</td>
-                  <td className="text-end">₱ {parseFloat(sale.total).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                  <td className="text-center">
-                    <span className={`status-badge ${getStatusClass(sale.payment)}`}>
-                      {sale.payment}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <>
+            {/* Fast Moving Section */}
+            <div className="movement-section">
+              <h4 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', color: '#10b981' }}>Fast Moving (Top 5)</h4>
+              {fastMoving.length === 0 ? (
+                <div style={{ padding: '1rem', textAlign: 'center', color: '#64748b' }}>No data</div>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Product</th>
+                      <th>Category</th>
+                      <th>Stock</th>
+                      <th>Sold</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {fastMoving.map((product) => (
+                      <tr key={product.product_id}>
+                        <td>{product.name}</td>
+                        <td>{product.category}</td>
+                        <td>{product.stock}</td>
+                        <td><strong style={{ color: '#10b981' }}>{product.total_sold}</strong></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* Slow Moving Section */}
+            <div className="movement-section" style={{ marginTop: '24px' }}>
+              <h4 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', color: '#f59e0b' }}>Slow Moving (Bottom 5)</h4>
+              {slowMoving.length === 0 ? (
+                <div style={{ padding: '1rem', textAlign: 'center', color: '#64748b' }}>No data</div>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Product</th>
+                      <th>Category</th>
+                      <th>Stock</th>
+                      <th>Sold</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {slowMoving.map((product) => (
+                      <tr key={product.product_id}>
+                        <td>{product.name}</td>
+                        <td>{product.category}</td>
+                        <td>{product.stock}</td>
+                        <td style={{ color: '#f59e0b' }}>{product.total_sold}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </>
         )}
       </div>
     </div>
@@ -468,10 +493,10 @@ const DashboardSections = () => {
   return (
     <div className="dashboard-sections">
       <div className="dashboard-row">
-        <div className="dashboard-col wide">
-          <RecentSales />
+        <div className="dashboard-col">
+          <ProductMovement />
         </div>
-        <div className="dashboard-col narrow">
+        <div className="dashboard-col">
           <InventoryAlerts />
         </div>
       </div>

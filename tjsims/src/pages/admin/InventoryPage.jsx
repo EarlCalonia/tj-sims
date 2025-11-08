@@ -6,6 +6,15 @@ import { productAPI } from '../../utils/api';
 import { inventoryAPI } from '../../utils/inventoryApi';
 
 const InventoryPage = () => {
+  function getDefaultReceivedBy() {
+    if (typeof window === 'undefined') return '';
+    return window.localStorage.getItem('username') || '';
+  }
+
+  function getDefaultDateTime() {
+    return new Date().toISOString().slice(0, 16);
+  }
+
   // State for products and inventory stats
   const [products, setProducts] = useState([]);
   const [inventoryStats, setInventoryStats] = useState({
@@ -24,13 +33,20 @@ const InventoryPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAddMode, setIsAddMode] = useState(true);
   const [isBulkStockInOpen, setIsBulkStockInOpen] = useState(false);
-  const [bulkStockInData, setBulkStockInData] = useState({
+  const [bulkStockInData, setBulkStockInData] = useState(() => ({
     supplier: '',
-    receivedBy: '',
-    serialNumber: '',
-    receivedDate: new Date().toISOString().slice(0, 16),
+    receivedBy: getDefaultReceivedBy(),
+    receivedDate: getDefaultDateTime(),
     products: []
-  });
+  }));
+  const [stockInModal, setStockInModal] = useState({ open: false, product: null });
+  const [stockInForm, setStockInForm] = useState(() => ({
+    supplier: '',
+    receivedBy: getDefaultReceivedBy(),
+    serialNumber: '',
+    receivedDate: getDefaultDateTime(),
+    quantity: 1
+  }));
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(5);
 
@@ -58,7 +74,6 @@ const InventoryPage = () => {
           ...product,
           reorderPoint: product.reorder_point ?? product.reorderPoint ?? 10
         }));
-        console.log('Products with inventory:', productsWithInventory);
         setProducts(productsWithInventory);
       } else {
         setError('Failed to load products');
@@ -147,9 +162,8 @@ const InventoryPage = () => {
   const handleOpenBulkStockIn = () => {
     setBulkStockInData({
       supplier: '',
-      receivedBy: localStorage.getItem('username') || '',
-      serialNumber: '',
-      receivedDate: new Date().toISOString().slice(0, 16),
+      receivedBy: getDefaultReceivedBy(),
+      receivedDate: getDefaultDateTime(),
       products: []
     });
     setIsBulkStockInOpen(true);
@@ -158,7 +172,7 @@ const InventoryPage = () => {
   const handleAddProductRow = () => {
     setBulkStockInData(prev => ({
       ...prev,
-      products: [...prev.products, { productId: '', productName: '', brand: '', quantity: 0 }]
+      products: [...prev.products, { productId: '', productName: '', brand: '', quantity: 1 }]
     }));
   };
 
@@ -173,7 +187,7 @@ const InventoryPage = () => {
     setBulkStockInData(prev => {
       const newProducts = [...prev.products];
       newProducts[index] = { ...newProducts[index], [field]: value };
-      
+
       // Auto-fill brand when product is selected
       if (field === 'productId') {
         const selectedProduct = products.find(p => p.product_id === value);
@@ -182,9 +196,71 @@ const InventoryPage = () => {
           newProducts[index].brand = selectedProduct.brand;
         }
       }
-      
+
       return { ...prev, products: newProducts };
     });
+  };
+
+  const handleOpenStockInModal = (product) => {
+    setStockInModal({ open: true, product });
+    setStockInForm({
+      supplier: '',
+      receivedBy: getDefaultReceivedBy(),
+      serialNumber: '',
+      receivedDate: getDefaultDateTime(),
+      quantity: 1
+    });
+  };
+
+  const handleCloseStockInModal = () => {
+    setStockInModal({ open: false, product: null });
+    setStockInForm({
+      supplier: '',
+      receivedBy: getDefaultReceivedBy(),
+      serialNumber: '',
+      receivedDate: getDefaultDateTime(),
+      quantity: 1
+    });
+  };
+
+  const handleSingleStockInSubmit = async (e) => {
+    e.preventDefault();
+    if (isSubmitting || !stockInModal.product) return;
+
+    const quantityToAdd = parseInt(stockInForm.quantity, 10) || 0;
+    if (quantityToAdd <= 0) {
+      alert('Please enter a quantity greater than zero.');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      const notesSegments = [
+        `Supplier: ${stockInForm.supplier || 'N/A'}`,
+        `Received by: ${stockInForm.receivedBy || 'N/A'}`
+      ];
+      if (stockInForm.serialNumber) {
+        notesSegments.push(`Serial: ${stockInForm.serialNumber}`);
+      }
+
+      await inventoryAPI.updateStock(stockInModal.product.product_id, {
+        quantityToAdd,
+        notes: `Stock In Entry - ${notesSegments.join(' | ')}`,
+        createdBy: stockInForm.receivedBy || 'System',
+        transactionDate: stockInForm.receivedDate
+      });
+
+      alert('Stock in recorded successfully.');
+      await loadProducts();
+      await loadInventoryStats();
+      handleCloseStockInModal();
+    } catch (error) {
+      console.error('Error recording stock in:', error);
+      alert(error.message || 'Failed to record stock in.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleBulkStockInSubmit = async (e) => {
@@ -198,11 +274,10 @@ const InventoryPage = () => {
 
     try {
       setIsSubmitting(true);
-      
+
       const payload = {
         supplier: bulkStockInData.supplier,
         receivedBy: bulkStockInData.receivedBy,
-        serialNumber: bulkStockInData.serialNumber,
         receivedDate: bulkStockInData.receivedDate,
         products: bulkStockInData.products.map(p => ({
           productId: p.productId,
@@ -220,6 +295,7 @@ const InventoryPage = () => {
       }
     } catch (error) {
       console.error('Error in bulk stock in:', error);
+      alert(error.message || 'Failed to record bulk stock in.');
       alert('Error: ' + error.message);
     } finally {
       setIsSubmitting(false);
@@ -434,9 +510,16 @@ const InventoryPage = () => {
                           <button
                             onClick={() => handleEditProduct(product)}
                             className="edit-btn"
-                            title="Edit Product"
+                            title="Edit Reorder Level"
                           >
                             <BsPencil />
+                          </button>
+                          <button
+                            onClick={() => handleOpenStockInModal(product)}
+                            className="stock-in-btn"
+                            title="Record Stock In"
+                          >
+                            Stock In
                           </button>
                         </div>
                       </td>
@@ -519,17 +602,6 @@ const InventoryPage = () => {
                     className="form-input"
                     placeholder="Enter receiver name"
                     required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Serial Number</label>
-                  <input
-                    type="text"
-                    value={bulkStockInData.serialNumber}
-                    onChange={(e) => setBulkStockInData(prev => ({ ...prev, serialNumber: e.target.value }))}
-                    className="form-input"
-                    placeholder="Enter serial number"
                   />
                 </div>
 
@@ -650,12 +722,95 @@ const InventoryPage = () => {
         </div>
       )}
 
+      {/* Single Stock In Modal */}
+      {stockInModal.open && stockInModal.product && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h2>{`Stock In – ${stockInModal.product.name}`}</h2>
+              <button onClick={handleCloseStockInModal} className="close-btn">×</button>
+            </div>
+
+            <form onSubmit={handleSingleStockInSubmit} className="product-form">
+              <div className="form-section">
+                <div className="form-group">
+                  <label>Supplier/Source</label>
+                  <input
+                    type="text"
+                    value={stockInForm.supplier}
+                    onChange={(e) => setStockInForm(prev => ({ ...prev, supplier: e.target.value }))}
+                    className="form-input"
+                    placeholder="Enter supplier"
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Received By</label>
+                  <input
+                    type="text"
+                    value={stockInForm.receivedBy}
+                    onChange={(e) => setStockInForm(prev => ({ ...prev, receivedBy: e.target.value }))}
+                    className="form-input"
+                    placeholder="Enter receiver name"
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Serial Number</label>
+                  <input
+                    type="text"
+                    value={stockInForm.serialNumber}
+                    onChange={(e) => setStockInForm(prev => ({ ...prev, serialNumber: e.target.value }))}
+                    className="form-input"
+                    placeholder="Enter serial number (optional)"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Date and Time Received</label>
+                  <input
+                    type="datetime-local"
+                    value={stockInForm.receivedDate}
+                    onChange={(e) => setStockInForm(prev => ({ ...prev, receivedDate: e.target.value }))}
+                    className="form-input"
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Quantity</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={stockInForm.quantity}
+                    onChange={(e) => setStockInForm(prev => ({ ...prev, quantity: e.target.value }))}
+                    className="form-input"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="modal-actions">
+                <button type="button" onClick={handleCloseStockInModal} className="cancel-btn">
+                  Cancel
+                </button>
+                <button type="submit" className="confirm-btn" disabled={isSubmitting}>
+                  {isSubmitting ? 'Processing...' : 'Record Stock In'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Product Modal */}
       {isModalOpen && (
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
-              <h2>{isAddMode ? 'Add New Product' : 'Edit Reorder Point'}</h2>
+              <h2>{isAddMode ? 'Add New Product' : 'Edit Reorder Level'}</h2>
               <button
                 onClick={() => setIsModalOpen(false)}
                 className="close-btn"
@@ -687,7 +842,7 @@ const InventoryPage = () => {
                 </div>
 
                 <div className="form-group">
-                  <label>Current Reorder Point</label>
+                  <label>Current Reorder Level</label>
                   <input
                     type="text"
                     value={selectedProduct?.currentReorderPoint || ''}
@@ -697,7 +852,7 @@ const InventoryPage = () => {
                 </div>
 
                 <div className="form-group">
-                  <label>New Reorder Point</label>
+                  <label>New Reorder Level</label>
                   <input
                     type="number"
                     name="newReorderPoint"
@@ -705,7 +860,7 @@ const InventoryPage = () => {
                     onChange={handleInputChange}
                     min="0"
                     className="form-input"
-                    placeholder="Enter new reorder point"
+                    placeholder="Enter new reorder level"
                     required
                   />
                 </div>

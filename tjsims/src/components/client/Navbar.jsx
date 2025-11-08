@@ -9,7 +9,6 @@ const Navbar = () => {
         <img src={tcjLogo} alt="TJC Auto Supply Logo" className="logo" />
       </div>
       <div className="nav-right">
-        <Link to="/" className="nav-link">Home</Link>
         <Link to="/products" className="nav-link">Products</Link>
         <Link to="/order-status" className="nav-link">Order Status</Link>
         <Link to="/contact-us" className="nav-link">Contact us</Link>

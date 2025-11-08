@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useLocation, Link } from 'react-router-dom';
 import Navbar from '../../components/client/Navbar';
 import Footer from '../../components/client/Footer';
 import { productAPI, inventoryAPI } from '../../utils/api';
@@ -7,7 +7,9 @@ import { productAPI, inventoryAPI } from '../../utils/api';
 const currency = (n) => `₱ ${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const ProductDetails = () => {
-  const { id } = useParams();
+  const { id } = useParams(); // URL slug (product name)
+  const location = useLocation();
+  const productId = location.state?.productId; // Actual product ID from state
   const [product, setProduct] = useState(null);
   const [stock, setStock] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -18,14 +20,16 @@ const ProductDetails = () => {
     const load = async () => {
       try {
         setLoading(true);
-        const res = await productAPI.getProductById(id);
+        // Use productId from state, fallback to id param for backward compatibility
+        const lookupId = productId || id;
+        const res = await productAPI.getProductById(lookupId);
         const p = res?.data || res; // backend may wrap
         if (mounted) setProduct(p);
         try {
           const invRes = await inventoryAPI.getProductsWithInventory();
           // API shape can be either { data: { products: [...] } } or { data: [...] }
           const list = invRes?.data?.products || invRes?.data || invRes || [];
-          const found = list.find((x) => (x.product_id || x.productId) === (p.product_id || id));
+          const found = list.find((x) => (x.product_id || x.productId) === (p.product_id || lookupId));
           if (mounted) setStock(found?.stock ?? found?.currentStock ?? 0);
         } catch {}
       } catch (e) {
@@ -36,7 +40,7 @@ const ProductDetails = () => {
     };
     load();
     return () => { mounted = false; };
-  }, [id]);
+  }, [id, productId]);
 
   return (
     <div className="products-page">
@@ -86,6 +90,33 @@ const ProductDetails = () => {
               <div className="description" style={{ marginTop: 8, whiteSpace: 'pre-wrap', color: '#37474f' }}>
                 {product.description || 'No description provided.'}
               </div>
+              
+              {/* Vehicle Compatibility Section */}
+              {product.vehicle_compatibility && (
+                <div className="vehicle-compatibility" style={{ marginTop: 20, padding: 16, background: '#f8f9fa', borderRadius: 8, border: '1px solid #e9ecef' }}>
+                  <h3 style={{ margin: '0 0 12px 0', fontSize: 16, color: '#0f2544', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 20 }}>🚗</span>
+                    Vehicle Compatibility
+                  </h3>
+                  <div style={{ fontSize: 14, color: '#475569', lineHeight: 1.6 }}>
+                    {typeof product.vehicle_compatibility === 'string' 
+                      ? product.vehicle_compatibility.split(',').map((v, i) => (
+                          <div key={i} style={{ padding: '6px 0', borderBottom: i < product.vehicle_compatibility.split(',').length - 1 ? '1px solid #e9ecef' : 'none' }}>
+                            • {v.trim()}
+                          </div>
+                        ))
+                      : Array.isArray(product.vehicle_compatibility)
+                      ? product.vehicle_compatibility.map((v, i) => (
+                          <div key={i} style={{ padding: '6px 0', borderBottom: i < product.vehicle_compatibility.length - 1 ? '1px solid #e9ecef' : 'none' }}>
+                            • {v}
+                          </div>
+                        ))
+                      : <div>{product.vehicle_compatibility}</div>
+                    }
+                  </div>
+                </div>
+              )}
+              
               <div className="sub-details" style={{ marginTop: 12, fontSize: 14, color: '#546e7a' }}></div>
             </div>
           </div>

@@ -51,6 +51,7 @@ export const InventoryController = {
       const { id } = req.params; // This will be the product_id (e.g., PRD-006)
       const { quantityToAdd, reorderPoint, notes, createdBy, transactionDate, supplierId } = req.body;
 
+
       // Find product by product_id
       const product = await Product.findById(id);
       if (!product) {
@@ -79,6 +80,7 @@ export const InventoryController = {
         }
       });
     } catch (error) {
+      console.error('✗ Stock update error:', error);
       res.status(500).json({
         success: false,
         message: error.message
