@@ -55,6 +55,14 @@ const OrderStatus = () => {
         setError('Order not found.');
         return;
       }
+      
+      // Only show Company Delivery orders
+      const deliveryType = String(found.delivery_type || '').toLowerCase();
+      if (deliveryType !== 'company delivery') {
+        setError('Order not found.');
+        return;
+      }
+      
       const items = await salesAPI.getSaleItems(found.id);
       const isCancelled = String(found.status || '').toLowerCase().includes('cancel');
       if (isCancelled) {

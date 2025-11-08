@@ -756,10 +756,7 @@ const SalesPage = () => {
                       <option value="In-Store Pickup">In-Store Pickup</option>
                       {/* Enable company delivery only if total >= 5000 */}
                       {getCartTotal() >= 5000 && (
-                        <>
-                          <option value="Company Delivery (COD)">Company Delivery (COD)</option>
-                          <option value="Company Delivery (GCash)">Company Delivery (GCash)</option>
-                        </>
+                        <option value="Company Delivery">Company Delivery</option>
                       )}
                     </select>
                   </div>
