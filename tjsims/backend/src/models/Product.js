@@ -11,6 +11,7 @@ export class Product {
       price,
       status,
       description,
+      vehicle_compatibility,
       image
     } = productData;
 
@@ -20,9 +21,9 @@ export class Product {
     const productId = `P${nextId.toString().padStart(3, '0')}`;
 
     const [result] = await pool.execute(
-      `INSERT INTO products (product_id, name, brand, category, price, status, description, image, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-      [productId, name, brand, category, price, status, description, image]
+      `INSERT INTO products (product_id, name, brand, category, vehicle_compatibility, price, status, description, image, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+      [productId, name, brand, category, vehicle_compatibility || null, price, status, description, image]
     );
 
     return result.insertId;
@@ -80,6 +81,7 @@ export class Product {
       price,
       status,
       description,
+      vehicle_compatibility,
       image
     } = productData;
 
@@ -98,6 +100,10 @@ export class Product {
     if (category !== undefined) {
       updates.push('category = ?');
       params.push(category);
+    }
+    if (vehicle_compatibility !== undefined) {
+      updates.push('vehicle_compatibility = ?');
+      params.push(vehicle_compatibility || null);
     }
     if (price !== undefined) {
       updates.push('price = ?');

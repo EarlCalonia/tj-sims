@@ -220,4 +220,72 @@ export class DashboardController {
       });
     }
   }
+
+  // Get fast moving products (top 5 by quantity sold in last 30 days)
+  static async getFastMovingProducts(req, res) {
+    try {
+      const pool = getPool();
+
+      const [products] = await pool.execute(
+        `SELECT p.product_id, p.name, p.category, i.stock,
+                COALESCE(SUM(si.quantity), 0) as total_sold
+         FROM products p
+         LEFT JOIN inventory i ON p.product_id = i.product_id
+         LEFT JOIN sale_items si ON p.product_id = si.product_id
+         LEFT JOIN sales s ON si.sale_id = s.id
+         WHERE p.status = 'Active'
+           AND (s.created_at IS NULL OR s.created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY))
+           AND (s.status IS NULL OR s.status <> 'Cancelled')
+         GROUP BY p.product_id, p.name, p.category, i.stock
+         HAVING total_sold > 0
+         ORDER BY total_sold DESC
+         LIMIT 5`
+      );
+
+      res.json({
+        success: true,
+        data: products
+      });
+    } catch (error) {
+      console.error('Error fetching fast moving products:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch fast moving products'
+      });
+    }
+  }
+
+  // Get slow moving products (bottom 5 by quantity sold in last 30 days, excluding zero sales)
+  static async getSlowMovingProducts(req, res) {
+    try {
+      const pool = getPool();
+
+      const [products] = await pool.execute(
+        `SELECT p.product_id, p.name, p.category, i.stock,
+                COALESCE(SUM(si.quantity), 0) as total_sold
+         FROM products p
+         LEFT JOIN inventory i ON p.product_id = i.product_id
+         LEFT JOIN sale_items si ON p.product_id = si.product_id
+         LEFT JOIN sales s ON si.sale_id = s.id
+         WHERE p.status = 'Active'
+           AND (s.created_at IS NULL OR s.created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY))
+           AND (s.status IS NULL OR s.status <> 'Cancelled')
+         GROUP BY p.product_id, p.name, p.category, i.stock
+         HAVING total_sold > 0
+         ORDER BY total_sold ASC
+         LIMIT 5`
+      );
+
+      res.json({
+        success: true,
+        data: products
+      });
+    } catch (error) {
+      console.error('Error fetching slow moving products:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch slow moving products'
+      });
+    }
+  }
 }

@@ -5,7 +5,7 @@ export class UsersController {
   static async list(req, res) {
     try {
       const pool = getPool();
-      const [rows] = await pool.execute('SELECT id, username, email, role, status, avatar FROM users ORDER BY created_at DESC');
+      const [rows] = await pool.execute('SELECT id, username, first_name, middle_name, last_name, email, role, status, avatar FROM users ORDER BY created_at DESC');
       res.json({ success: true, data: rows });
     } catch (err) {
       console.error('List users error:', err);
@@ -15,16 +15,23 @@ export class UsersController {
 
   static async create(req, res) {
     try {
-      const { username, email, password, role = 'staff', status = 'Active' } = req.body;
-      if (!username || !email || !password) {
-        return res.status(400).json({ success: false, message: 'username, email, password are required' });
+      const { username, first_name, middle_name, last_name, email, password, role = 'staff', status = 'Active' } = req.body;
+      if (!email || !password) {
+        return res.status(400).json({ success: false, message: 'email and password are required' });
+      }
+      if (!first_name || !last_name) {
+        return res.status(400).json({ success: false, message: 'first_name and last_name are required' });
       }
       const pool = getPool();
       const hash = await bcrypt.hash(password, 10);
       const avatarPath = req.file ? `/${req.file.path.replace(/\\/g, '/')}`.replace('src/', '') : null;
+      
+      // Generate username from name fields if not provided
+      const fullUsername = username || `${last_name}, ${first_name}${middle_name ? ' ' + middle_name : ''}`;
+      
       await pool.execute(
-        'INSERT INTO users (username, email, password_hash, role, status, avatar) VALUES (?, ?, ?, ?, ?, ?)',
-        [username, email, hash, role, status, avatarPath]
+        'INSERT INTO users (username, first_name, middle_name, last_name, email, password_hash, role, status, avatar) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [fullUsername, first_name, middle_name || null, last_name, email, hash, role, status, avatarPath]
       );
       res.status(201).json({ success: true, message: 'User created' });
     } catch (err) {

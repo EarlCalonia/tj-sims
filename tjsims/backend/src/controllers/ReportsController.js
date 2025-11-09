@@ -18,13 +18,14 @@ export class ReportsController {
 
       const offset = (page - 1) * limit;
 
-      // Build query for sales with filtering - get individual sales records
+      // Build query for sales with filtering - get individual sales records (exclude fully refunded)
       let salesQuery = `
         SELECT s.id, s.sale_number, s.customer_name, s.contact, s.total, s.payment,
-               s.created_at, s.status
+               s.created_at, s.status, s.payment_status
         FROM sales s
         WHERE 1=1
-          AND (s.status = 'Completed' OR s.status IS NULL)
+          AND (s.status = 'Completed' OR s.status = 'Partially Returned' OR s.status IS NULL)
+          AND (s.payment_status != 'Refunded' OR s.payment_status IS NULL)
       `;
       let salesParams = [];
 
@@ -44,8 +45,8 @@ export class ReportsController {
       const pool = getPool();
       const [sales] = await pool.execute(salesQuery, salesParams);
 
-      // Get total count for pagination (apply same filters)
-      let countQuery = "SELECT COUNT(*) as total FROM sales WHERE 1=1 AND (status = 'Completed' OR status IS NULL)";
+      // Get total count for pagination (apply same filters - exclude fully refunded)
+      let countQuery = "SELECT COUNT(*) as total FROM sales WHERE 1=1 AND (status = 'Completed' OR status = 'Partially Returned' OR status IS NULL) AND (payment_status != 'Refunded' OR payment_status IS NULL)";
       let countParams = [];
 
       if (start_date) {
@@ -81,13 +82,27 @@ export class ReportsController {
             status: sale.status || 'N/A',
             itemCount: itemCount,
             calculatedTotal: calculatedTotal,
-            items: items.map(item => ({
-              productName: item.product_name || 'N/A',
-              brand: item.brand || 'N/A',
-              quantity: item.quantity || 0,
-              unitPrice: item.price || 0,
-              totalPrice: item.subtotal || 0
-            }))
+            items: items
+              .map(item => {
+                // Calculate actual sold quantity (excluding returned items)
+                const returnedQty = item.returned_quantity || 0;
+                const actualQty = (item.quantity || 0) - returnedQty;
+                
+                // Skip fully returned items
+                if (actualQty <= 0) return null;
+                
+                // Adjust price for partially returned items
+                const actualPrice = (item.price || 0) * actualQty;
+                
+                return {
+                  productName: item.product_name || 'N/A',
+                  brand: item.brand || 'N/A',
+                  quantity: actualQty,
+                  unitPrice: item.price || 0,
+                  totalPrice: actualPrice
+                };
+              })
+              .filter(item => item !== null) // Remove fully returned items
           });
         } catch (error) {
           console.error(`Error fetching items for sale ${sale.id}:`, error);

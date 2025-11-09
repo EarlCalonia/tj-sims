@@ -357,6 +357,22 @@
   background-color: #0056b3;
 }
 
+.stock-in-btn {
+  background-color: #17a2b8;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.stock-in-btn:hover {
+  background-color: #117a8b;
+}
+
 .delete-btn {
   background-color: #dc3545;
   color: white;

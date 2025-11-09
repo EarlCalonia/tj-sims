@@ -21,7 +21,7 @@ const SettingsPage = () => {
   // Users
   const [users, setUsers] = useState([]);
   const [showAddUser, setShowAddUser] = useState(false);
-  const [newUser, setNewUser] = useState({ username: '', email: '', role: 'staff', status: 'Active', password: '', avatarFile: null });
+  const [newUser, setNewUser] = useState({ lastName: '', firstName: '', middleName: '', email: '', role: 'staff', status: 'Active', password: '', avatarFile: null });
   const [savingUser, setSavingUser] = useState(false);
   const [showEditUser, setShowEditUser] = useState(false);
   const [editUser, setEditUser] = useState({ id: null, username: '', role: 'staff', status: 'Active', avatarFile: null });
@@ -100,12 +100,15 @@ const SettingsPage = () => {
   const handleAddUser = async () => {
     try {
       setSavingUser(true);
-      if (!newUser.username || !newUser.email || !newUser.password) {
-        alert('Please complete user fields');
+      if (!newUser.lastName || !newUser.firstName || !newUser.email || !newUser.password) {
+        alert('Please complete required fields (Last Name, First Name, Email, Password)');
         return;
       }
+      
       const fd = new FormData();
-      fd.append('username', newUser.username);
+      fd.append('first_name', newUser.firstName);
+      fd.append('middle_name', newUser.middleName || '');
+      fd.append('last_name', newUser.lastName);
       fd.append('email', newUser.email);
       fd.append('password', newUser.password);
       fd.append('role', newUser.role);
@@ -113,7 +116,7 @@ const SettingsPage = () => {
       if (newUser.avatarFile) fd.append('avatar', newUser.avatarFile);
       await usersAPI.create(fd);
       setShowAddUser(false);
-      setNewUser({ username: '', email: '', role: 'staff', status: 'Active', password: '', avatarFile: null });
+      setNewUser({ lastName: '', firstName: '', middleName: '', email: '', role: 'staff', status: 'Active', password: '', avatarFile: null });
       await loadUsers();
     } catch (e) {
       alert(e.message || 'Failed to add user');
@@ -302,8 +305,16 @@ const SettingsPage = () => {
             </div>
             <div className="modal-body">
               <div className="form-col">
-                <label>Name</label>
-                <input className="text-input" value={newUser.username} onChange={(e)=>setNewUser({...newUser, username: e.target.value})} />
+                <label>Last Name <span style={{color: 'red'}}>*</span></label>
+                <input className="text-input" value={newUser.lastName} onChange={(e)=>setNewUser({...newUser, lastName: e.target.value})} placeholder="Enter last name" />
+              </div>
+              <div className="form-col">
+                <label>First Name <span style={{color: 'red'}}>*</span></label>
+                <input className="text-input" value={newUser.firstName} onChange={(e)=>setNewUser({...newUser, firstName: e.target.value})} placeholder="Enter first name" />
+              </div>
+              <div className="form-col">
+                <label>Middle Name</label>
+                <input className="text-input" value={newUser.middleName} onChange={(e)=>setNewUser({...newUser, middleName: e.target.value})} placeholder="Enter middle name (optional)" />
               </div>
               <div className="form-col">
                 <label>Email</label>

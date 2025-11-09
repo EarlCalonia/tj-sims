@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../../components/admin/Navbar';
-import PDFExportModal from '../../components/admin/PDFExportModal';
 import { generateSalesReportPDF, generateInventoryReportPDF } from '../../utils/pdfGenerator';
 import { reportsAPI } from '../../utils/api';
 import { BsFileEarmarkPdf } from 'react-icons/bs';
@@ -12,14 +11,115 @@ const ReportsPage = () => {
   const [endDate, setEndDate] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(5);
-  const [showPDFModal, setShowPDFModal] = useState(false);
-  const [adminName] = useState('Admin User'); // You can get this from authentication context
-  const [rangeLabel, setRangeLabel] = useState('Daily'); // Sales report granularity (UI only)
+  const [adminName] = useState(localStorage.getItem('username') || 'Admin User');
+  const [rangeLabel, setRangeLabel] = useState('Daily'); // Sales report granularity (Daily, Weekly, Monthly)
   const [stockStatus, setStockStatus] = useState('All Status'); // Inventory report filter
   const [brandFilter, setBrandFilter] = useState('All Brand'); // Inventory brand filter
   const [categoryFilter, setCategoryFilter] = useState('All Categories'); // Inventory category filter
   const [brands, setBrands] = useState([]); // Available brands
   const [categories, setCategories] = useState([]); // Available categories
+  
+  // Helper functions for date range calculations
+  // Helper to format date as YYYY-MM-DD without timezone conversion
+  const formatLocalDate = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const getWeekRange = (dateStr) => {
+    // Handle week input format: "2025-W45" or regular date
+    let date;
+    if (dateStr.includes('W')) {
+      // Week format: YYYY-Www
+      const [year, week] = dateStr.split('-W');
+      // Calculate date from week number
+      date = new Date(year, 0, 1 + (week - 1) * 7);
+      // Adjust to nearest Monday
+      const day = date.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      date.setDate(date.getDate() + diff);
+    } else {
+      date = new Date(dateStr);
+      const day = date.getDay();
+      const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+      date.setDate(diff);
+    }
+    
+    const monday = new Date(date);
+    const sunday = new Date(date);
+    sunday.setDate(monday.getDate() + 6);
+    
+    return {
+      start: formatLocalDate(monday),
+      end: formatLocalDate(sunday)
+    };
+  };
+  
+  const getMonthRange = (dateStr) => {
+    // Handle month input format: "2025-11" or regular date
+    let year, month;
+    if (dateStr.match(/^\d{4}-\d{2}$/)) {
+      // Month format: YYYY-MM
+      [year, month] = dateStr.split('-').map(Number);
+      month = month - 1; // JavaScript months are 0-indexed (0=Jan, 10=Nov)
+    } else {
+      const date = new Date(dateStr);
+      year = date.getFullYear();
+      month = date.getMonth();
+    }
+    
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0); // Day 0 of next month = last day of this month
+    
+    return {
+      start: formatLocalDate(firstDay),
+      end: formatLocalDate(lastDay)
+    };
+  };
+  
+  // Handle range label change - auto-adjust dates
+  const handleRangeLabelChange = (newLabel) => {
+    setRangeLabel(newLabel);
+    if (startDate) {
+      if (newLabel === 'Weekly') {
+        const range = getWeekRange(startDate);
+        setStartDate(range.start);
+        setEndDate(range.end);
+      } else if (newLabel === 'Monthly') {
+        const range = getMonthRange(startDate);
+        setStartDate(range.start);
+        setEndDate(range.end);
+      }
+    }
+  };
+  
+  // Handle date change based on range label
+  const handleDateChange = (value, isStart = true) => {
+    if (!value) return; // Ignore empty values
+    
+    try {
+      if (rangeLabel === 'Weekly') {
+        const range = getWeekRange(value);
+        setStartDate(range.start);
+        setEndDate(range.end);
+      } else if (rangeLabel === 'Monthly') {
+        const range = getMonthRange(value);
+        setStartDate(range.start);
+        setEndDate(range.end);
+      } else {
+        // Daily - normal date picker
+        if (isStart) {
+          setStartDate(value);
+        } else {
+          setEndDate(value);
+        }
+      }
+    } catch (error) {
+      console.error('Error handling date change:', error);
+    }
+  };
 
   // API state
   const [salesData, setSalesData] = useState([]);
@@ -64,8 +164,8 @@ const ReportsPage = () => {
 
       if (activeTab === 'sales') {
         const result = await reportsAPI.getSalesReport(filters);
-        setSalesData(result.sales || []);
-        setPagination(result.pagination || {});
+        setSalesData(result.data?.sales || result.sales || []);
+        setPagination(result.data?.pagination || result.pagination || {});
       } else {
         const inventoryFilters = {
           ...filters,
@@ -74,8 +174,8 @@ const ReportsPage = () => {
           ...(categoryFilter && categoryFilter !== 'All Categories' ? { category: categoryFilter } : {})
         };
         const result = await reportsAPI.getInventoryReport(inventoryFilters);
-        setInventoryData(result.inventory || []);
-        setPagination(result.pagination || {});
+        setInventoryData(result.data?.inventory || result.inventory || []);
+        setPagination(result.data?.pagination || result.pagination || {});
       }
     } catch (err) {
       console.error('Error fetching report data:', err);
@@ -121,39 +221,52 @@ const ReportsPage = () => {
   };
 
 
-  const handleExportPDF = () => {
-    setShowPDFModal(true);
-  };
-
-  const handlePDFExportConfirm = async (exportStartDate, exportEndDate) => {
+  const handleExportPDF = async () => {
     try {
-      let doc;
+      if (!startDate || !endDate) {
+        alert('Please select date range');
+        return;
+      }
+      
       if (activeTab === 'sales') {
-        // For sales, we need to fetch all sales data for the date range
-        const allSalesResult = await reportsAPI.getSalesReport({
-          start_date: exportStartDate,
-          end_date: exportEndDate,
-          limit: 1000 // Get all records for export
-        });
-        doc = await generateSalesReportPDF(allSalesResult.sales, exportStartDate, exportEndDate, adminName);
-        doc.save(`Sales_Report_${exportStartDate}_to_${exportEndDate}.pdf`);
+        // Export all sales data within the selected range (no pagination)
+        const allSalesResult = await reportsAPI.getSalesReport(startDate, endDate, 1, 999999);
+        if (allSalesResult.success) {
+          const doc = await generateSalesReportPDF(
+            allSalesResult.data.sales,
+            startDate,
+            endDate,
+            adminName,
+            rangeLabel
+          );
+          doc.save(`Sales_Report_${startDate}_to_${endDate}.pdf`);
+        }
       } else {
-        // For inventory, fetch all inventory data honoring all current filters
-        const allInventoryResult = await reportsAPI.getInventoryReport({
-          limit: 10000,
-          ...(stockStatus && stockStatus !== 'All Status' ? { stock_status: stockStatus } : {}),
-          ...(brandFilter && brandFilter !== 'All Brand' ? { brand: brandFilter } : {}),
-          ...(categoryFilter && categoryFilter !== 'All Categories' ? { category: categoryFilter } : {})
-        });
-        doc = await generateInventoryReportPDF(allInventoryResult.inventory, exportStartDate, exportEndDate, adminName);
-        doc.save(`Inventory_Report_${exportStartDate}_to_${exportEndDate}.pdf`);
+        // Export inventory report
+        const allInventoryResult = await reportsAPI.getInventoryReport(
+          stockStatus,
+          brandFilter,
+          categoryFilter,
+          1,
+          999999
+        );
+        if (allInventoryResult.success) {
+          const doc = await generateInventoryReportPDF(
+            allInventoryResult.data.items,
+            stockStatus,
+            brandFilter,
+            categoryFilter,
+            adminName
+          );
+          doc.save(`Inventory_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+        }
       }
     } catch (error) {
-      console.error('PDF generation failed:', error);
-      alert('Failed to generate PDF. Please try again.');
+      console.error('Error exporting PDF:', error);
+      alert('Failed to export PDF');
     }
   };
-
+  
   // Reset to first page when tab changes
   useEffect(() => {
     setCurrentPage(1);
@@ -190,35 +303,50 @@ const ReportsPage = () => {
 
             {/* Controls Section */}
             <div className="reports-controls">
-              <div className="date-range-section">
-                <div className="date-input-group">
-                  <label htmlFor="start-date">From</label>
-                  <input
-                    type="date"
-                    id="start-date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="date-input"
-                  />
-                </div>
-                <div className="date-input-group">
-                  <label htmlFor="end-date">To</label>
-                  <input
-                    type="date"
-                    id="end-date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="date-input"
-                  />
-                </div>
+              <div className="filters-row" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
                 {activeTab === 'sales' && (
                   <div className="date-input-group">
                     <label htmlFor="range-label">Range Label</label>
-                    <select id="range-label" value={rangeLabel} onChange={(e)=>setRangeLabel(e.target.value)} className="date-input">
+                    <select id="range-label" value={rangeLabel} onChange={(e)=>handleRangeLabelChange(e.target.value)} className="date-input">
                       <option>Daily</option>
                       <option>Weekly</option>
                       <option>Monthly</option>
                     </select>
+                  </div>
+                )}
+                <div className="date-input-group">
+                  <label htmlFor="start-date">
+                    {rangeLabel === 'Weekly' ? 'Select Week' : rangeLabel === 'Monthly' ? 'Select Month' : 'From'}
+                  </label>
+                  <input
+                    type={rangeLabel === 'Weekly' ? 'week' : rangeLabel === 'Monthly' ? 'month' : 'date'}
+                    id="start-date"
+                    onChange={(e) => handleDateChange(e.target.value, true)}
+                    className="date-input"
+                  />
+                </div>
+                {rangeLabel === 'Daily' && (
+                  <div className="date-input-group">
+                    <label htmlFor="end-date">To</label>
+                    <input
+                      type="date"
+                      id="end-date"
+                      value={endDate}
+                      onChange={(e) => handleDateChange(e.target.value, false)}
+                      className="date-input"
+                    />
+                  </div>
+                )}
+                {rangeLabel !== 'Daily' && startDate && endDate && (
+                  <div className="date-input-group">
+                    <label>Calculated Range</label>
+                    <input
+                      type="text"
+                      value={`${startDate} to ${endDate}`}
+                      readOnly
+                      className="date-input"
+                      style={{ background: '#f5f5f5', cursor: 'not-allowed', minWidth: '280px' }}
+                    />
                   </div>
                 )}
                 {activeTab === 'inventory' && (
@@ -383,13 +511,6 @@ const ReportsPage = () => {
         </main>
       </div>
 
-      {/* PDF Export Modal */}
-      <PDFExportModal
-        isOpen={showPDFModal}
-        onClose={() => setShowPDFModal(false)}
-        onExport={handlePDFExportConfirm}
-        reportType={activeTab}
-      />
     </>
   );
 };
